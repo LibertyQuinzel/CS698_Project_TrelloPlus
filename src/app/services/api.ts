@@ -105,7 +105,19 @@ const getAuthHeaders = () => {
 const parseErrorMessage = async (response: Response, fallback: string): Promise<string> => {
   try {
     const error = await response.json();
-    return error?.message || fallback;
+    if (typeof error?.message === 'string' && error.message.trim().length > 0) {
+      return error.message;
+    }
+    if (typeof error?.detail === 'string' && error.detail.trim().length > 0) {
+      return error.detail;
+    }
+    if (typeof error?.error_description === 'string' && error.error_description.trim().length > 0) {
+      return error.error_description;
+    }
+    if (typeof error?.error === 'string' && error.error.trim().length > 0) {
+      return error.error;
+    }
+    return fallback;
   } catch {
     return fallback;
   }
@@ -440,5 +452,19 @@ export const apiService = {
     if (!response.ok) {
       throw new Error(await parseApiErrorMessage(response, 'Failed to remove team member'));
     }
+  },
+
+  async updateTeamMemberRole(projectId: string, userId: string, role: 'editor' | 'viewer'): Promise<any> {
+    const response = await requestWithTimeout(`${API_BASE_URL}/projects/${projectId}/members/${userId}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ role }),
+    });
+
+    if (!response.ok) {
+      throw new Error(await parseApiErrorMessage(response, 'Failed to update team member role'));
+    }
+
+    return response.json();
   },
 };

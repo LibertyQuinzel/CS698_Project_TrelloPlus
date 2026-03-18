@@ -12,8 +12,8 @@ spring:
     open-in-view: false
   datasource:
     url: jdbc:postgresql://localhost:5432/flowboard
-    username: postgres
-    password: postgres
+    username: flowboard
+    password: flowboard_password
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 5

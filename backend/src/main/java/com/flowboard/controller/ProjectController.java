@@ -107,6 +107,19 @@ public class ProjectController {
         return ResponseEntity.ok(projectService.addTeamMember(projectId, request.getEmail(), request.getRole(), userId));
     }
 
+    @PutMapping("/{projectId}/members/{userId}")
+    public ResponseEntity<TeamMemberDTO> updateTeamMemberRole(
+        @PathVariable UUID projectId,
+        @PathVariable UUID userId,
+        @RequestBody UpdateTeamMemberRoleRequest request,
+        @RequestHeader("Authorization") String authHeader) {
+
+        String token = authHeader.replace("Bearer ", "");
+        UUID requesterId = jwtService.extractUserId(token);
+
+        return ResponseEntity.ok(projectService.updateTeamMemberRole(projectId, userId, request.getRole(), requesterId));
+    }
+
     @DeleteMapping("/{projectId}/members/{userId}")
     public ResponseEntity<Void> removeTeamMember(
         @PathVariable UUID projectId,

@@ -80,12 +80,7 @@ export function Login() {
             </div>
             
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <Label htmlFor="login-password">Password</Label>
-                <a href="#" className="text-xs text-blue-600 hover:text-blue-700">
-                  Forgot password?
-                </a>
-              </div>
+              <Label htmlFor="login-password" className="mb-2 block">Password</Label>
               <Input
                 id="login-password"
                 type="password"

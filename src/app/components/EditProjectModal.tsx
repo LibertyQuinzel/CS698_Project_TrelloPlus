@@ -28,6 +28,15 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
   const [editingColumnTitle, setEditingColumnTitle] = useState('');
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
   const [membersLoadFailed, setMembersLoadFailed] = useState(false);
+  const currentUserId = (() => {
+    try {
+      const rawUser = localStorage.getItem('user');
+      return rawUser ? JSON.parse(rawUser)?.id ?? null : null;
+    } catch {
+      return null;
+    }
+  })();
+  const ownerPermissionMessage = 'Only the project owner can manage members.';
 
   const normalizeMembers = (backendMembers: Array<{ id: string; email: string; username?: string; fullName?: string; role?: string }>): ProjectMember[] => {
     return backendMembers.map((member) => {
@@ -96,15 +105,21 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
   };
 
   const handleAddMember = async () => {
-    if (!newMemberName.trim() || !newMemberEmail.trim()) {
-      toast.error('Please enter both name and email');
+    if (!canManageMembers) {
+      toast.error(ownerPermissionMessage);
+      return;
+    }
+
+    if (!newMemberEmail.trim()) {
+      toast.error('Please enter an email address');
       return;
     }
     try {
       const createdMember = await apiService.addTeamMember(project.id, newMemberEmail.trim(), newMemberName.trim(), newMemberRole);
+      const resolvedName = createdMember.fullName || createdMember.username || newMemberName.trim() || createdMember.email;
       const newMember: ProjectMember = {
         id: createdMember.id,
-        name: createdMember.fullName || createdMember.username || newMemberName.trim(),
+        name: resolvedName,
         email: createdMember.email,
         role: createdMember.role || newMemberRole,
       };
@@ -119,12 +134,38 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
   };
 
   const handleRemoveMember = async (memberId: string, memberName: string) => {
+    if (!canManageMembers) {
+      toast.error(ownerPermissionMessage);
+      return;
+    }
+
     try {
       await apiService.removeTeamMember(project.id, memberId);
       removeMemberFromProject(project.id, memberId);
       toast.success(`${memberName} removed from project`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to remove member');
+    }
+  };
+
+  const handleUpdateMemberRole = async (memberId: string, memberName: string, role: 'editor' | 'viewer') => {
+    if (!canManageMembers) {
+      toast.error(ownerPermissionMessage);
+      return;
+    }
+
+    try {
+      const updatedMember = await apiService.updateTeamMemberRole(project.id, memberId, role);
+      updateProject(project.id, {
+        members: currentProject.members.map((member) =>
+          member.id === memberId
+            ? { ...member, role: updatedMember.role === 'viewer' ? 'viewer' : 'editor' }
+            : member,
+        ),
+      });
+      toast.success(`${memberName} is now ${role}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update member role');
     }
   };
 
@@ -150,6 +191,8 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
   // Get fresh project data from store
   const currentProject = useProjectStore((s) => s.projects.find((p) => p.id === project.id));
   if (!currentProject) return null;
+  const canManageMembers = currentUserId != null
+    && currentProject.members.some((member) => member.id === currentUserId && member.role === 'owner');
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -220,10 +263,25 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          {member.role}
-                        </Badge>
-                        {member.role !== 'owner' && (
+                        {member.role === 'owner' || member.id === currentUserId || !canManageMembers ? (
+                          <Badge variant="outline" className="text-xs">
+                            {member.role}
+                          </Badge>
+                        ) : (
+                          <Select
+                            value={member.role}
+                            onValueChange={(value: 'editor' | 'viewer') => void handleUpdateMemberRole(member.id, member.name, value)}
+                          >
+                            <SelectTrigger className="h-8 w-28 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="editor">editor</SelectItem>
+                              <SelectItem value="viewer">viewer</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                        {member.role !== 'owner' && canManageMembers && (
                           <Button
                             variant="ghost"
                             size="icon"
@@ -243,19 +301,26 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
               {/* Add New Member */}
               <div className="border-t pt-4">
                 <Label className="text-sm mb-3 block">Add New Member</Label>
+                {!canManageMembers && (
+                  <p className="text-xs text-amber-700 mb-2">
+                    {ownerPermissionMessage}
+                  </p>
+                )}
                 <div className="space-y-3">
                   <Input
-                    placeholder="Name"
+                    placeholder="Name (optional)"
                     value={newMemberName}
                     onChange={(e) => setNewMemberName(e.target.value)}
+                    disabled={!canManageMembers}
                   />
                   <Input
                     placeholder="Email"
                     type="email"
                     value={newMemberEmail}
                     onChange={(e) => setNewMemberEmail(e.target.value)}
+                    disabled={!canManageMembers}
                   />
-                  <Select value={newMemberRole} onValueChange={(v: ProjectMember['role']) => setNewMemberRole(v)}>
+                  <Select value={newMemberRole} onValueChange={(v: ProjectMember['role']) => setNewMemberRole(v)} disabled={!canManageMembers}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -264,7 +329,7 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
                       <SelectItem value="viewer">Viewer</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button onClick={() => void handleAddMember()} className="w-full">
+                  <Button onClick={() => void handleAddMember()} className="w-full" disabled={!canManageMembers}>
                     <UserPlus className="w-4 h-4 mr-2" />
                     Add Member
                   </Button>

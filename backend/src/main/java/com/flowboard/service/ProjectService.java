@@ -309,8 +309,11 @@ public class ProjectService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot add another owner");
         }
 
-        User user = userRepository.findByEmail(email.trim())
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        User user = userRepository.findByEmailIgnoreCase(email.trim())
+            .orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.NOT_FOUND,
+                "User not found. Ask them to register first before adding to the project."
+            ));
 
         if (Boolean.TRUE.equals(user.getIsDeletionMarked())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot add deleted user");
@@ -325,6 +328,35 @@ public class ProjectService {
         projectMemberRepository.upsertMemberRole(projectId, user.getId(), requestedRole.toDbValue());
 
         return toTeamMemberDTO(user, requestedRole);
+    }
+
+    @Transactional
+    public TeamMemberDTO updateTeamMemberRole(UUID projectId, UUID targetUserId, String role, UUID userId) {
+        Project project = getProjectForAccess(projectId, userId);
+        ensureProjectOwner(project, userId);
+
+        if (targetUserId.equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You cannot update your own role");
+        }
+
+        if (project.getOwner().getId().equals(targetUserId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot update project owner role");
+        }
+
+        if (!projectMemberRepository.findMemberRole(projectId, targetUserId).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User is not a member of this project");
+        }
+
+        ProjectMemberRole requestedRole = ProjectMemberRole.fromRequest(role);
+        if (requestedRole == ProjectMemberRole.OWNER) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot assign owner role");
+        }
+
+        User targetUser = userRepository.findById(targetUserId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        projectMemberRepository.upsertMemberRole(projectId, targetUserId, requestedRole.toDbValue());
+        return toTeamMemberDTO(targetUser, requestedRole);
     }
 
     @Transactional
