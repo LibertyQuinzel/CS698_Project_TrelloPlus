@@ -1,0 +1,60 @@
+graph TB
+    Participant["👥 Meeting Participants"]
+    
+    subgraph CLIENT["🖥️ CLIENT (Browser - React)"]
+        MeetingUI["Meeting UI<br/>React + TypeScript"]
+        ApprovalUI["Approval UI<br/>React + TypeScript"]
+    end
+    
+    subgraph SERVER["⚙️ SERVER (Spring Boot 3.2.0)"]
+        MeetingController["MeetingController<br/>(REST Endpoint)"]
+        MeetingService["MeetingService"]
+        Transcriber["TranscriptionService<br/>(Audio Processing)"]
+        AIEngine["AIEngine"]
+        PromptBuilder["PromptBuilder"]
+        SummaryBuilder["SummaryBuilder"]
+        ApprovalService["ApprovalService"]
+        ChangeGenerator["ChangeGenerator"]
+        ImpactAnalyzer["ImpactAnalyzer"]
+        NotificationService["NotificationService"]
+    end
+    
+    subgraph CLOUD["☁️ CLOUD (External APIs)"]
+        LLMProvider["OpenAI GPT-4<br/>Anthropic Claude<br/>(Remote LLM APIs)"]
+    end
+    
+    subgraph DATABASE["🗄️ DATABASE (PostgreSQL 16.1)"]
+        MeetingRepo["MeetingRepository<br/>(JPA)"]
+        TranscriptRepo["TranscriptRepository<br/>(JPA)"]
+        ChangeRepo["ChangeRepository<br/>(JPA)"]
+        ApprovalRepo["ApprovalRepository<br/>(JPA)"]
+        DB["PostgreSQL<br/>On-Premise/Cloud"]
+    end
+    
+    Participant -->|"1. Join Meeting"| MeetingUI
+    MeetingUI -->|"2. HTTP POST<br/>/api/v1/meetings"| MeetingController
+    MeetingController -->|"3. Request Service"| MeetingService
+    MeetingService -->|"4. Record Audio"| Transcriber
+    
+    Transcriber -->|"5. Transcribed Text"| SummaryBuilder
+    SummaryBuilder -->|"6. Build Prompt"| AIEngine
+    AIEngine -->|"7. HTTPS POST"| LLMProvider
+    LLMProvider -->|"8. JSON Response"| AIEngine
+    
+    AIEngine -->|"9. Structure Summary"| SummaryBuilder
+    SummaryBuilder -->|"10. Save via JPA"| MeetingRepo
+    MeetingRepo -->|"11. INSERT/UPDATE"| DB
+    
+    Transcriber -->|"12. Save Transcript"| TranscriptRepo
+    TranscriptRepo -->|"13. INSERT"| DB
+    
+    ChangeGenerator -->|"14. Generate Changes"| ChangeRepo
+    ChangeRepo -->|"15. INSERT"| DB
+    
+    ChangeGenerator -->|"16. Analyze Impact"| ImpactAnalyzer
+    ChangeGenerator -->|"17. Create Approval"| ApprovalRepo
+    ApprovalRepo -->|"18. INSERT"| DB
+    
+    ApprovalService -->|"19. Send Notification"| NotificationService
+    NotificationService -->|"20. WebSocket/Email"| ApprovalUI
+    ApprovalUI -->|"21. Review & Approve"| Participant

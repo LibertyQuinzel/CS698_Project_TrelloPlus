@@ -1,0 +1,217 @@
+classDiagram
+    %% Interfaces
+    class IRepository {
+        <<interface>>
+        save()
+        findById()
+        delete()
+    }
+
+    %% Controllers (WF1.1, WF2.2, WF3.1)
+    class ProjectInputController {
+        -validateDescription()
+        -handleProjectSubmission()
+    }
+    
+    class BoardController {
+        -createBoard()
+        -getBoard()
+        -updateBoard()
+    }
+    
+    class CardController {
+        -createCard()
+        -getCard()
+        -updateCard()
+        -moveCard()
+    }
+    
+    class AuthController {
+        -login()
+        -logout()
+        -register()
+        -refreshToken()
+    }
+
+    %% Services - WF1 (AI Board Generation)
+    class ProjectService {
+        -createProject()
+        -getProject()
+        -submitForAnalysis()
+    }
+    
+    class AIEngine {
+        -analyzeProject()
+        -generateBoardStructure()
+        -generateWorkItems()
+    }
+    
+    class PromptBuilder {
+        -buildAnalysisPrompt()
+        -buildBoardPrompt()
+        -buildTasksPrompt()
+    }
+    
+    class LLMClient {
+        -sendRequest()
+        -parseResponse()
+        -handleErrors()
+    }
+    
+    class BoardGenerator {
+        -generateBoard()
+        -applyTemplate()
+        -customizeStages()
+    }
+    
+    class StageFactory {
+        -createStage()
+        -createDefaultStages()
+    }
+
+    %% Services - WF2 (Board Management)
+    class BoardService {
+        -createBoard()
+        -moveCard()
+        -reorderStages()
+        -archiveBoard()
+    }
+    
+    class CardService {
+        -createCard()
+        -updateCard()
+        -moveToStage()
+        -assignUser()
+        -addComment()
+    }
+
+    %% Services - WF3 (Auth & Security)
+    class AuthService {
+        -authenticate()
+        -authorize()
+        -generateToken()
+        -validateToken()
+    }
+    
+    class PermissionManager {
+        -checkPermission()
+        -grantPermission()
+        -revokePermission()
+    }
+    
+    class JWTUtil {
+        -generateToken()
+        -validateToken()
+        -parsePayload()
+    }
+
+    %% Repositories
+    class UserRepository {
+        -save()
+        -findById()
+        -findByEmail()
+        -delete()
+    }
+    
+    class ProjectRepository {
+        -save()
+        -findById()
+        -findByUserId()
+        -search()
+    }
+    
+    class BoardRepository {
+        -save()
+        -findById()
+        -findByProjectId()
+        -findByUser()
+    }
+    
+    class CardRepository {
+        -save()
+        -findById()
+        -findByStageId()
+        -search()
+    }
+
+    %% Domain Models (WF4)
+    class User {
+        -id: UUID
+        -email: String
+        -password_hash: String
+        -first_name: String
+        -last_name: String
+        -role: Role
+    }
+    
+    class Project {
+        -id: UUID
+        -name: String
+        -description: String
+        -owner_id: UUID
+        -status: String
+    }
+    
+    class Board {
+        -id: UUID
+        -project_id: UUID
+        -name: String
+    }
+    
+    class Stage {
+        -id: UUID
+        -board_id: UUID
+        -title: String
+        -position: Integer
+        -color: String
+    }
+    
+    class Card {
+        -id: UUID
+        -stage_id: UUID
+        -title: String
+        -description: String
+        -assignee_id: UUID
+        -priority: String
+    }
+    
+    class Role {
+        -id: UUID
+        -name: String
+        -permissions: List~Permission~
+    }
+
+    %% Relationships
+    ProjectInputController --> ProjectService
+    ProjectService --> AIEngine
+    ProjectService --> ProjectRepository
+    
+    AIEngine --> PromptBuilder
+    AIEngine --> LLMClient
+    AIEngine --> BoardGenerator
+    
+    BoardGenerator --> StageFactory
+    BoardGenerator --> BoardRepository
+    
+    BoardController --> BoardService
+    BoardService --> BoardRepository
+    
+    CardController --> CardService
+    CardService --> CardRepository
+    
+    AuthController --> AuthService
+    AuthService --> JWTUtil
+    AuthService --> UserRepository
+    
+    AuthService --> PermissionManager
+    
+    ProjectRepository --> IRepository
+    UserRepository --> IRepository
+    BoardRepository --> IRepository
+    CardRepository --> IRepository
+
+    User --> Role
+    Project <-- Board
+    Board <-- Stage
+    Stage <-- Card
+    Card <-- User

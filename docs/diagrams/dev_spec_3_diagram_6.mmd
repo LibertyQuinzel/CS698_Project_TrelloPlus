@@ -1,0 +1,32 @@
+sequenceDiagram
+    actor User as TeamMember
+    participant View as ChangePreviewView
+    participant Ctrl as ChangePreviewController
+    participant DiffCalc as DiffCalculator
+    participant Analyzer as ImpactAnalyzer
+
+    User->>View: Click on specific change to view details
+    activate View
+    
+    View->>Ctrl: getChangeDetail(changeId)
+    activate Ctrl
+    
+    Ctrl->>Ctrl: fetchChangeFromDB(changeId)
+    
+    Ctrl->>DiffCalc: calculateDiff(currentState, proposedState)
+    activate DiffCalc
+    DiffCalc-->>Ctrl: DiffDataTransferObject
+    deactivate DiffCalc
+    
+    Ctrl->>Analyzer: analyzeImpact(change)
+    activate Analyzer
+    Analyzer-->>Ctrl: ImpactDataTransferObject
+    deactivate Analyzer
+    
+    Ctrl-->>View: PreviewDetailDataTransferObject
+    deactivate Ctrl
+    
+    View->>View: renderDiff()
+    View->>View: renderImpactAnalysis()
+    View-->>User: Display before/after comparison with impact analysis
+    deactivate View

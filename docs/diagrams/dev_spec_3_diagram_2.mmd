@@ -1,0 +1,222 @@
+classDiagram
+    %% AP1: Preview & Preparation
+    class ChangePreviewView {
+        <<UI>>
+        -renderChanges()
+        -displayDiff()
+    }
+    
+    class ChangePreviewController {
+        -getPreviewChanges()
+        -getChangeDetail()
+        -getDiff()
+    }
+    
+    class DiffViewer {
+        <<UI>>
+        -renderDiff()
+    }
+    
+    class DiffCalculator {
+        -calculateDiff()
+    }
+    
+    class ImpactViewer {
+        <<UI>>
+        -displayImpact()
+    }
+    
+    class ImpactAnalyzer {
+        -analyzeImpact()
+    }
+    
+    class ChangePreviewService {
+        -loadPendingChanges()
+        -getChangePreview()
+    }
+
+    %% AP2: Approval & Decision
+    class ApprovalComponent {
+        <<UI>>
+        -renderApprovalButtons()
+    }
+    
+    class ApprovalController {
+        -approveChange()
+        -rejectChange()
+        -approveBatch()
+    }
+    
+    class ApprovalService {
+        -submitApproval()
+        -submitRejection()
+    }
+    
+    class DecisionProcessor {
+        -processDecision()
+        -evaluateQuorum()
+    }
+    
+    class ConflictResolver {
+        -detectConflicts()
+        -resolveConflicts()
+    }
+    
+    class ApprovalRuleEngine {
+        -evaluateRules()
+    }
+
+    %% AP3: Change Application
+    class ApplicationStager {
+        -prepareApplication()
+    }
+    
+    class TransactionManager {
+        -beginTransaction()
+        -commit()
+        -rollback()
+    }
+    
+    class ChangeApplicationService {
+        -applyApprovedChanges()
+        -verifyApplication()
+        -rollbackChange()
+    }
+    
+    class ChangeValidator {
+        -validateApplication()
+    }
+    
+    class ConsistencyChecker {
+        -verifyIntegrity()
+    }
+
+    %% AP4: History & Audit
+    class HistoryRepository {
+        -saveHistory()
+        -getHistory()
+    }
+    
+    class AlertDispatcher {
+        -sendAlert()
+    }
+
+    %% AP5: Data Layer
+    class ChangeRepository {
+        -save()
+        -findById()
+    }
+    
+    class ApprovalRepository {
+        -save()
+        -findById()
+    }
+    
+    class AuditRepository {
+        -save()
+        -findById()
+    }
+
+    %% AP6: External Integration
+    class KanbanBoardGateway {
+        -fetchBoardState()
+        -applyChanges()
+    }
+    
+    class MeetingGateway {
+        -fetchChanges()
+    }
+
+    %% Domain Models
+    class PreviewChange {
+        -id: UUID
+        -changeId: UUID
+        -changeType: ChangeType
+        -currentState: Map
+        -proposedState: Map
+        -status: PreviewStatus
+    }
+    
+    class ApprovalDecision {
+        -id: UUID
+        -changeId: UUID
+        -approverId: UUID
+        -decision: Decision
+        -feedback: String
+    }
+    
+    class ChangeSnapshot {
+        -id: UUID
+        -changeId: UUID
+        -boardStateBefore: Map
+        -boardStateAfter: Map
+    }
+    
+    class AuditEntry {
+        -id: UUID
+        -changeId: UUID
+        -action: String
+        -actor: UUID
+        -timestamp: DateTime
+    }
+
+    %% Enums
+    class ChangeType {
+        <<enumeration>>
+        MOVE_CARD
+        UPDATE_CARD
+        CREATE_CARD
+        DELETE_CARD
+    }
+    
+    class PreviewStatus {
+        <<enumeration>>
+        PENDING
+        UNDER_REVIEW
+        APPROVED
+        REJECTED
+        READY_FOR_APPLICATION
+        APPLYING
+        APPLIED
+        ROLLED_BACK
+    }
+    
+    class ImpactLevel {
+        <<enumeration>>
+        LOW
+        MEDIUM
+        HIGH
+        CRITICAL
+    }
+    
+    class Decision {
+        <<enumeration>>
+        APPROVE
+        REJECT
+        DEFER
+    }
+
+    %% Relationships
+    ChangePreviewController --> ChangePreviewService
+    ChangePreviewView --> DiffViewer
+    ChangePreviewService --> DiffCalculator
+    ChangePreviewService --> ImpactAnalyzer
+    
+    ApprovalController --> ApprovalService
+    ApprovalComponent --> ApprovalController
+    ApprovalService --> DecisionProcessor
+    DecisionProcessor --> ApprovalRuleEngine
+    ApprovalService --> ConflictResolver
+    
+    ChangeApplicationService --> ApplicationStager
+    ChangeApplicationService --> TransactionManager
+    ChangeApplicationService --> ChangeValidator
+    ChangeValidator --> ConsistencyChecker
+    ChangeApplicationService --> KanbanBoardGateway
+    
+    ChangePreviewService --> ChangeRepository
+    ApprovalService --> ApprovalRepository
+    
+    PreviewChange --> ChangeType
+    PreviewChange --> PreviewStatus
+    ApprovalDecision --> Decision

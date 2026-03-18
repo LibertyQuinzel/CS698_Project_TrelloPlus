@@ -1,0 +1,40 @@
+stateDiagram-v2
+    [*] --> PENDING
+    
+    PENDING --> QUEUED: Changes approved
+    QUEUED --> EXECUTING: Begin execution
+    QUEUED --> CANCELLED: Cancel execution
+    
+    EXECUTING --> VALIDATING: Validate execution
+    EXECUTING --> FAILED: Execution error
+    
+    VALIDATING --> COMPLETED: Validation successful
+    VALIDATING --> FAILED: Validation failed
+    
+    FAILED --> PENDING: Retry with rollback
+    FAILED --> ARCHIVED: Archive failure
+    
+    COMPLETED --> ARCHIVED: Mark as complete
+    CANCELLED --> ARCHIVED: Mark as cancelled
+    
+    ARCHIVED --> [*]
+    
+    note right of QUEUED
+        Changes ready to execute
+        Priority in execution queue
+    end note
+    
+    note right of EXECUTING
+        Applying changes to
+        kanban board state
+    end note
+    
+    note right of COMPLETED
+        All changes applied
+        Verification passed
+    end note
+    
+    note right of FAILED
+        Execution or validation failed
+        Automatic rollback triggered
+    end note

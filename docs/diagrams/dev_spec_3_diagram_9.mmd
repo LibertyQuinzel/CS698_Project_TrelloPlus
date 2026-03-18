@@ -1,0 +1,47 @@
+sequenceDiagram
+    actor User as TeamMember
+    participant View as ChangePreviewView
+    participant Ctrl as ApprovalController
+    participant Service as ApprovalService
+    participant Repo as ApprovalRepository
+    participant Dispatcher as AlertDispatcher
+    participant DB as PostgreSQL
+
+    User->>View: Click Reject and provide reason
+    activate View
+    
+    View->>Ctrl: rejectChange(changeId, userId, feedback)
+    activate Ctrl
+    
+    Ctrl->>Service: submitRejection(changeId, userId, feedback)
+    activate Service
+    
+    Service->>Service: checkApprovalAuthority(userId)
+    
+    Service->>Repo: save(rejection_decision)
+    activate Repo
+    Repo->>DB: INSERT INTO approval_decisions (decision=REJECT)
+    DB-->>Repo: decision_id UUID
+    deactivate Repo
+    
+    Service->>Repo: updateChangeStatus(changeId, REJECTED)
+    activate Repo
+    Repo->>DB: UPDATE preview_changes SET status = REJECTED
+    DB-->>Repo: 1 row updated
+    deactivate Repo
+    
+    Service->>Dispatcher: sendAlert(changeId, rejection_reason)
+    activate Dispatcher
+    Dispatcher->>Dispatcher: Notify relevant stakeholders
+    Dispatcher-->>Service: Alert sent
+    deactivate Dispatcher
+    
+    Service-->>Ctrl: RejectionResult
+    deactivate Service
+    
+    Ctrl-->>View: 200 OK (rejection recorded)
+    deactivate Ctrl
+    
+    View->>View: updateChangeStatus()
+    View-->>User: Rejection recorded and stakeholders notified
+    deactivate View

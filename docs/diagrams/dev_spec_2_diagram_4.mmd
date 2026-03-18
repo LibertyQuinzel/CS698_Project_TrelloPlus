@@ -1,0 +1,44 @@
+stateDiagram-v2
+    [*] --> PENDING
+    
+    PENDING --> UNDER_APPROVAL: Submit for approval
+    PENDING --> CANCELLED: Cancel request
+    
+    UNDER_APPROVAL --> APPROVED: All required approvals received
+    UNDER_APPROVAL --> REJECTED: Rejection received
+    UNDER_APPROVAL --> PENDING: Request modifications
+    UNDER_APPROVAL --> CANCELLED: Cancel during review
+    
+    APPROVED --> READY_FOR_APPLICATION: Prepare to apply
+    APPROVED --> CANCELLED: Cancel after approval
+    
+    REJECTED --> PENDING: Resubmit with changes
+    REJECTED --> ARCHIVED: Archive rejection
+    
+    READY_FOR_APPLICATION --> APPLYING: Start application
+    READY_FOR_APPLICATION --> CANCELLED: Cancel before apply
+    
+    APPLYING --> COMPLETED: Application successful
+    APPLYING --> FAILED: Application error
+    
+    COMPLETED --> [*]
+    FAILED --> PENDING: Retry
+    FAILED --> ARCHIVED: Archive failure
+    
+    CANCELLED --> ARCHIVED
+    ARCHIVED --> [*]
+    
+    note right of UNDER_APPROVAL
+        Waiting for team members
+        to approve or reject
+    end note
+    
+    note right of READY_FOR_APPLICATION
+        All approvals collected
+        Awaiting application trigger
+    end note
+    
+    note right of APPLYING
+        Changes being applied
+        to kanban board
+    end note

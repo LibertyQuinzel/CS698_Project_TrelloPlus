@@ -9,9 +9,10 @@
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 2.4 | 2026-03-16 | Harmonized with dev_spec_1.md and dev_spec_3.md; added Unified Architecture Overview; clarified Change entity lifecycle flowing to dev_spec_3.md; unified role model and user auth model |
 | 2.3 | 2026-02-15 | Naming convention alignment: UniversallyUniqueIdentifier→UUID, JsonWebTokenUtil→JWTUtil, LargeLanguageModelClient→LLMClient, ArtificialIntelligenceEngine→AIEngine, *Identifier→*Id field names, identifier→id database columns, identifier_→idx_ index prefixes |
 | 2.2 | 2026-02-15 | Technology stack alignment: upgraded Java 17 to Java 21 LTS, PostgreSQL 15.5 to 16.1, LangChain4j 0.27.0 to 0.24.0, Flyway 9.22.3 to 10.x for consistency with dev_spec1 and dev_spec_3 |
-| 2.1 | 2026-02-15 | Consistency fixes: aligned author info, added missing WF6 enums to diagram, added missing database schemas (decisions, changes, approval_requests, approval_responses), added missing repositories (ChecklistRepository, CommentRepository), fixed class type mismatches, fixed User role field type |
+| 2.1 | 2026-02-15 | Consistency fixes: aligned author info, added missing WF6 enums to diagram, added missing database schemas (decisions, changes, approval_requests, approval_responses), added missing repositories (ChecklistRepository), fixed class type mismatches, fixed User role field type |
 | 2.0 | 2026-02-15 | Fully compliant development specification |
 | 1.0 | 2026-02-15 | Initial Dev Spec |
 
@@ -19,13 +20,55 @@
 
 | Author | Role | Version |
 |--------|------|---------|
-| Vishesh Raju | Developer | 1.0, 2.0, 2.1, 2.2, 2.3 |
+| Vishesh Raju | Developer | 1.0 |
+| Swechcha Ambati | Author | 2.0, 2.1, 2.2, 2.3, 2.4 |
 
 ---
 
 # User Story
 
 > As a meeting facilitator, I want to end the meeting by generating an automatic summary of all agreed-upon action items, decisions, and changes in a separate approval checklist section, so that team members can review exactly what was decided and approve it before any changes take effect.
+
+---
+
+# Unified Architecture Overview
+
+## Integration with Other User Stories
+
+This specification represents **User Story 2 of 3** in a harmonized backend system:
+
+| User Story | Spec | Purpose | Data Flow |
+|------------|------|---------|-----------|
+| **1. AI Board Generation** | dev_spec_1.md | Project manager creates board via AI | Project → Board → Cards |
+| **2. Meeting Summary & Checklist** | dev_spec_2.md | Meeting facilitator captures meeting and generates summary | Meeting → AI Analysis → ActionItems, Decisions, **Changes** |
+| **3. Change Review & Approval** | dev_spec_3.md | Team member reviews and approves kanban changes | **Changes from WF2** → Preview → Approval → Applied |
+
+## Unified Data Model
+
+All three specifications share:
+- **Unified User/Auth System:** Single users table with consistent role model (ADMIN, MANAGER, MEMBER, VIEWER)
+- **Unified Project/Board System:** Projects and boards created via WF1; meetings and changes operate on these entities
+- **Unified Change Entity:** Changes extracted from meeting summaries by AIEngine; these are persisted as records that WF3 reviews
+- **Unified Approval Workflow:** WF2 manages summary approval; WF3 manages change approval; both use consistent patterns
+
+## Data Flow Across Workflows
+
+```
+WF1: ProjectManager creates Project 
+     → AIEngine generates Board + Cards (WF1 in dev_spec_1.md)
+     
+WF2: MeetingFacilitator creates Meeting (THIS SPEC)
+     → Meeting Summary Input (frontend provides summary text)
+     → AIEngine analyzes summary → extracts ActionItems, Decisions, Changes
+     → Creates Change records in database (referenced by WF3)
+     → ApprovalService manages summary approval
+     → Summary status affects whether changes flow to WF3
+     
+WF3: TeamMember reviews Changes (created by WF2)
+     → PreviewChange displays changes with diff/impact
+     → ApprovalService manages change approval
+     → ChangeApplicationService applies approved changes to Board (created in WF1)
+```
 
 ---
 
@@ -71,14 +114,13 @@
 | WF1.1.3 | MeetingService | Service | Core business logic for meeting creation, retrieval, and management |
 | WF1.1.4 | MeetingNote | Struct | Individual note captured during meeting session |
 
-### WF1.2 - Real-Time Capture Module
+### WF1.2 - Meeting Summary Input Module
 
 | Label | Class Name | Type | Purpose |
 |-------|------------|------|---------|
-| WF1.2.1 | CaptureController | Controller | Handles real-time capture of meeting content via WebSocket |
-| WF1.2.2 | CaptureService | Service | Business logic for capturing and classifying meeting content |
-| WF1.2.3 | ContentClassifier | Service | Classifies content type and extracts structured information |
-| WF1.2.4 | WebSocketService | Service | Manages bidirectional real-time communication with clients |
+| WF1.2.1 | SummaryInputController | Controller | Handles HTTP requests for meeting summary submission |
+| WF1.2.2 | SummaryInputService | Service | Validates and processes meeting summary input |
+| WF1.2.3 | SummaryValidator | Service | Validates summary content and structure |
 
 ## WF2 - Artificial Intelligence Summary Generation Pipeline
 
@@ -135,13 +177,10 @@
 | WF4.1.3 | ChangeExecutor | Service | Executes individual changes with validation |
 | WF4.1.4 | ChangeRecord | Struct | Record of change execution with rollback data |
 
-### WF4.2 - Notification and Audit Module
+### WF4.2 - Notification Module
 
 | Label | Class Name | Type | Purpose |
 |-------|------------|------|---------|
-| WF4.2.1 | NotificationService | Service | Manages all system notifications via email and push |
-| WF4.2.2 | AuditService | Service | Manages audit logging and trail generation |
-| WF4.2.3 | AuditLog | Struct | Individual audit log entry |
 
 ## WF5 - Infrastructure and Security
 
@@ -165,7 +204,6 @@
 | WF5.2.5 | CaptureRepository | Repository | Data access for MeetingNote entity |
 | WF5.2.6 | DatabaseConnection | Service | Database connection pool management |
 | WF5.2.7 | ChecklistRepository | Repository | Data access for ApprovalChecklist entity |
-| WF5.2.8 | CommentRepository | Repository | Data access for review comments |
 
 ## WF6 - Domain Models
 
@@ -251,19 +289,16 @@
 
 ---
 
-## WF1.2 - Real-Time Capture Module
+## WF1.2 - Meeting Summary Input Module
 
-### Component: WebSocketService (WF1.2.4)
+### Component: SummaryInputService (WF1.2.2)
 
 | Label | Failure Mode | Effect | Recovery Procedure | Diagnostic Procedure | Likelihood | Business Impact |
 |-------|--------------|--------|-------------------|---------------------|------------|-----------------|
-| WF1.2.4-F1 | Process crash | All WebSocket connections dropped | Auto-restart; Clients reconnect automatically | Check for null pointer exceptions; Review connection handler logs | Medium | High |
-| WF1.2.4-F2 | Lost runtime state | Active connection state lost | Clients send full state refresh; Rebuild connection registry | Verify Redis persistence; Check connection count metrics | Medium | High |
-| WF1.2.4-F3 | Connectivity loss to clients | Real-time updates stop | Client reconnection logic triggers; Missed messages sent on reconnect | Check network latency; Review WebSocket ping-pong failures | High | High |
-| WF1.2.4-F4 | Server down | All WebSocket connections lost | Failover to backup WebSocket server; Clients reconnect via load balancer | Verify server health endpoint; Check load balancer target health | Medium | Critical |
-| WF1.2.4-F5 | Overload | Message delivery delays | Drop non-critical messages; Prioritize critical updates | Monitor message queue depth; Check backpressure indicators | High | Medium |
-| WF1.2.4-F6 | Out of Random Access Memory | Connection limit reached | Reject new connections; Scale server horizontally | Monitor connection count; Check memory per connection | Medium | High |
-| WF1.2.4-F7 | Intruder message injection | Malicious content broadcast | Validate and sanitize all messages; Block sender | Check message signatures; Review content for injection patterns | Medium | High |
+| WF1.2.2-F1 | Process crash | Summary submission fails | Auto-restart; Clients can retry submission | Check application logs for exceptions | Medium | Medium |
+| WF1.2.2-F2 | Validation error | Invalid summary rejected | Return error message to user | Log validation rule violations; Check input schema | Medium | Low |
+| WF1.2.2-F3 | Database persistence failure | Summary not saved | Retry with exponential backoff; Alert administrator | Check database connectivity; Verify write permissions | Low | High |
+| WF1.2.2-F4 | Concurrent submission conflict | Multiple submissions conflict | Use optimistic locking; Request user to resubmit | Check transaction logs; Verify version numbers | Low | Medium |
 
 ---
 
@@ -362,14 +397,24 @@
 |-------|------------|---------|---------|----------------------|------------------|---------------|---------------|---------------|
 | TECH-LANG-001 | Java | 21 Long Term Support | Backend application development | Yes (https://github.com/openjdk/jdk) | Major security vulnerabilities; Long Term Support end-of-life | Oracle provides commercial support; OpenJDK community support | Kotlin, Scala | Mature ecosystem; Enterprise adoption; Strong typing; Performance |
 | TECH-FW-001 | Spring Boot | 3.2.0 | Application framework and dependency injection | Yes (https://github.com/spring-projects/spring-boot) | Security patches released; Major version with features needed | VMware Tanzu commercial support; Large community | Quarkus, Micronaut | Industry standard; Extensive documentation; Rich ecosystem; Production proven |
-| TECH-FW-002 | Spring WebFlux | 3.2.0 | Reactive WebSocket support | Yes (https://github.com/spring-projects/spring-framework) | Bundled with Spring Boot upgrades | VMware Tanzu commercial support | Socket.IO, Raw WebSocket | Integrated with Spring; Reactive streams; Backpressure handling |
 | TECH-DB-001 | PostgreSQL | 16.1 | Primary relational database | Yes (https://github.com/postgres/postgres) | Critical security issues; Performance improvements | Community support; Commercial support available from multiple vendors | MySQL, MongoDB | ACID compliance; JSON support; Advanced indexing; Open source |
-| TECH-DB-002 | Redis | 7.2.3 | Session storage and caching | Yes (https://github.com/redis/redis) | Security vulnerabilities; Major feature releases | Redis Labs commercial support; Community support | Memcached, Hazelcast | In-memory performance; Persistence options; Pub-sub for WebSocket |
 | TECH-AI-001 | OpenAI GPT-4 Turbo | gpt-4-1106-preview | Primary Large Language Model for summary generation | No (Proprietary Application Programming Interface) | Model updates from provider | OpenAI commercial Application Programming Interface support | Google PaLM, Anthropic Claude | Best-in-class performance; Structured output support; Function calling |
 | TECH-AI-002 | Anthropic Claude | claude-3-opus-20240229 | Fallback Large Language Model | No (Proprietary Application Programming Interface) | Model updates from provider | Anthropic commercial Application Programming Interface support | Google PaLM, Cohere | High quality output; Long context window; Reliable fallback |
 | TECH-AI-003 | LangChain4j | 0.24.0 | Large Language Model abstraction layer | Yes (https://github.com/langchain4j/langchain4j) | Breaking changes; Critical bugs | Community support | Direct Application Programming Interface integration | Multi-provider support; Prompt templates; Chain of thought |
-| TECH-FE-001 | React | 18.2.0 | Frontend user interface framework | Yes (https://github.com/facebook/react) | Major security issues; Breaking changes | Meta commercial backing; Large community | Vue, Angular, Svelte | Component model; Virtual Document Object Model; Large ecosystem; Developer familiarity |
+| TECH-FE-001 | React | 18.3.1 | Frontend user interface framework | Yes (https://github.com/facebook/react) | Major security issues; Breaking changes | Meta commercial backing; Large community | Vue, Angular, Svelte | Component model; Virtual Document Object Model; Large ecosystem; Developer familiarity |
 | TECH-FE-002 | TypeScript | 5.3.2 | Type-safe frontend development | Yes (https://github.com/microsoft/TypeScript) | Major version releases; Security issues | Microsoft commercial backing; Community support | JavaScript, Flow | Type safety; Better tooling; Refactoring support; Error catching |
+| TECH-FE-003 | Vite | 6.3.5 | Frontend build tool and development server | Yes (https://github.com/vitejs/vite) | Breaking changes; Performance improvements | Community support | Webpack, Rollup | Extremely fast development server; Near-instant HMR; Optimized build output |
+| TECH-FE-004 | Tailwind CSS | 4.1.12 | Utility-first CSS framework | Yes (https://github.com/tailwindlabs/tailwindcss) | Major version releases | Tailwind Labs commercial support; Community | Bootstrap, Material-UI | Rapid development; Customizable; Small bundle size; Excellent documentation |
+| TECH-FE-005 | Radix UI | Latest | Unstyled, accessible component primitives | Yes (https://github.com/radix-ui/primitives) | Breaking changes; New components | Community support | Material-UI, Chakra UI | Headless design; Full accessibility; No styling opinions; Framework agnostic |
+| TECH-FE-006 | shadcn/ui | Latest | High-quality component library | Yes (https://github.com/shadcn-ui/ui) | Component updates | Community support | Material-UI, Ant Design | Built on Radix UI; Pre-built accessible components; Full customization |
+| TECH-FE-007 | React Router | 7.13.0 | Client-side routing library | Yes (https://github.com/remix-run/react-router) | Major version releases | Community support | Next.js, TanStack Router | Standards-based routing; Nested routes; Loaders and actions |
+| TECH-FE-008 | React Hook Form | 7.55.0 | Performant form management | Yes (https://github.com/react-hook-form/react-hook-form) | Major version releases | Community support | Formik, React Final Form | Minimal re-renders; Excellent performance; Small bundle size |
+| TECH-FE-009 | Zustand | 5.0.11 | Lightweight state management | Yes (https://github.com/pmndrs/zustand) | Major version releases | Community support | Redux, Jotai, Recoil | Simple API; Minimal boilerplate; No provider wrapping; Excellent TypeScript |
+| TECH-FE-010 | Axios | 1.6.x | Promise-based HTTP client | Yes (https://github.com/axios/axios) | Security issues; Breaking changes | Community support | Fetch API, Node-fetch | Request/response interceptors; Timeout support; Cancel tokens |
+| TECH-FE-011 | React DnD | 16.0.1 | Drag-and-drop library | Yes (https://github.com/react-dnd/react-dnd) | New features; Bug fixes | Community support | react-beautiful-dnd, dnd-kit | Flexible architecture; Accessible; Smooth interactions; Kanban support |
+| TECH-FE-012 | Lucide React | 0.487.0 | Icon library for React | Yes (https://github.com/lucide-icons/lucide) | New icons; API changes | Community support | react-icons, Feather Icons | Consistent design; Accessible; SVG-based; Tree-shakeable |
+| TECH-FE-013 | Sonner | Latest | Toast notification library | Yes (https://github.com/emilkowalski/sonner) | New features; Breaking changes | Community support | React Toastify, react-hot-toast | Beautiful animations; Customizable; Headless; Responsive |
+| TECH-FE-014 | date-fns | 3.6.0 | Modular date utility library | Yes (https://github.com/date-fns/date-fns) | Major version releases | Community support | Moment.js, Day.js | Modular; Lightweight; Immutable; Excellent TypeScript support |
 | TECH-AUTH-001 | Spring Security | 6.2.0 | Authentication and authorization | Yes (https://github.com/spring-projects/spring-security) | Security vulnerabilities; Major releases | VMware Tanzu commercial support | Auth0, Keycloak | Integrated with Spring; Flexible; Standards-based; Well documented |
 | TECH-AUTH-002 | Json Web Token (jose4j) | 0.9.3 | Json Web Token generation and validation | Yes (https://bitbucket.org/b_c/jose4j) | Security vulnerabilities | Community support | jjwt, nimbus-jose-jwt | Standards compliant; Well tested; Active maintenance |
 | TECH-DB-003 | Flyway | 10.x | Database schema migrations | Yes (https://github.com/flyway/flyway) | Breaking changes; Security issues | Redgate commercial support; Community edition | Liquibase | Simple migration scripts; Version control friendly; Reliable |
@@ -377,6 +422,72 @@
 | TECH-TEST-002 | Testcontainers | 1.19.3 | Integration testing with containers | Yes (https://github.com/testcontainers/testcontainers-java) | Security vulnerabilities; New features | AtomicJar commercial support; Community | Docker Compose, Manual containers | Real dependencies; Isolated tests; Easy setup |
 | TECH-BUILD-001 | Gradle | 8.5 | Build automation | Yes (https://github.com/gradle/gradle) | Security issues; Performance improvements | Gradle Inc commercial support; Community | Maven, Bazel | Flexible; Fast; Kotlin Domain-Specific Language; Incremental builds |
 | TECH-CONT-001 | Docker | 24.0.7 | Application containerization | Yes (https://github.com/moby/moby) | Security vulnerabilities | Docker Inc commercial support; Community | Podman, containerd | Industry standard; Registry ecosystem; Build caching |
+
+---
+
+# Unified Backend API Structure
+
+## Single Backend Serving Three User Stories
+
+All three development specifications (dev_spec_1, dev_spec_2, dev_spec_3) are served by a **single Spring Boot backend** running on a single instance. This specification (WF2) provides the meeting and AI summary functionality that integrates with:
+
+- **dev_spec_1**: Provides the projects, boards, and cards that WF2 references
+- **dev_spec_3**: Consumes the `changes` records created by WF2 for change review and approval
+
+### API Endpoint Organization
+
+```
+Base: /api/v1/
+
+WF1 Endpoints (from dev_spec_1.md):
+  /projects              - Create and manage projects
+  /boards                - Generate and manage kanban boards  
+  /cards                 - Manage work items/cards
+  
+WF2 Endpoints (this spec):
+  /meetings              - Create and manage meetings
+  /summaries             - Generate and retrieve meeting summaries
+  /approvals             - Manage summary approval workflow
+  
+WF3 Endpoints (from dev_spec_3.md):
+  /changes               - Review kanban changes from meetings
+  /changes/{id}/approve  - Approve individual changes
+  /changes/{id}/apply    - Apply approved changes to board
+  
+Shared Endpoints (Auth & User Management):
+  /auth/login            - User authentication
+  /auth/register         - User registration  
+  /auth/logout           - User logout
+  /users/{id}            - User profile management
+```
+
+### Unified Database Connection
+
+All endpoints share a **single PostgreSQL database** (16.1) with the following unified schema:
+
+| Entity | Created By | Used By | Purpose |
+|--------|-----------|---------|---------|
+| users | Shared Auth | WF1, WF2, WF3 | User authentication and authorization |
+| projects | WF1 | WF1, WF2, WF3 | Project metadata |
+| meetings | WF2 | WF2, WF3 | Meeting sessions |
+| changes | WF2 (AI-generated) | WF3 | Changes from meeting AI analysis flow to WF3 |
+| meeting_sessions | WF2 | WF2 | Meeting metadata |
+
+### Cross-Workflow Dependencies
+
+**WF2 depends on:**
+- users table (from shared auth for meeting facilitators and participants)
+- projects table (reference when creating meetings for a project)
+
+**WF2 creates:**
+- meeting_sessions, meeting_notes, meeting_summaries
+- changes (that flow to WF3 for approval)
+- action_items, decisions (extracted from meeting)
+
+**WF3 consumes:**
+- changes (created by WF2)
+- users table (for approval authority)
+- boards, cards (from WF1 to apply changes)
 
 ---
 
@@ -567,7 +678,7 @@
 
 | Label | Method | Return Type | Parameters | Description | Calls Across Modules |
 |-------|--------|-------------|------------|-------------|---------------------|
-| WF1.1.3.1 | createMeeting() | UUID | session: MeetingSession | Persists new meeting | WF5.2.2 MeetingRepository.save(), WF4.2.1 NotificationService.notifyApprovers() |
+| WF1.1.3.1 | createMeeting() | UUID | session: MeetingSession | Persists new meeting | WF5.2.2 MeetingRepository.save() |
 
 ### WF2.1.2 SummaryService
 
@@ -579,8 +690,8 @@
 
 | Label | Method | Return Type | Parameters | Description | Calls Across Modules |
 |-------|--------|-------------|------------|-------------|---------------------|
-| WF3.1.2.1 | createRequest() | ApprovalRequest | summaryId: UUID | Creates approval request | WF5.2.4 ApprovalRepository.save(), WF4.2.1 NotificationService.notifyApprovers() |
-| WF3.1.2.2 | finalizeApproval() | void | requestId: UUID | Finalizes approved request | WF4.1.2 ChangeService.applyChanges(), WF4.2.1 NotificationService.notifyChanges() |
+| WF3.1.2.1 | createRequest() | ApprovalRequest | summaryId: UUID | Creates approval request | WF5.2.4 ApprovalRepository.save() |
+| WF3.1.2.2 | finalizeApproval() | void | requestId: UUID | Finalizes approved request | WF4.1.2 ChangeService.applyChanges() |
 
 ---
 
@@ -970,8 +1081,7 @@
 
 | Audit Type | Frequency | Module | Component | Class | Method | Scope |
 |------------|-----------|--------|-----------|-------|--------|-------|
-| Access Log Review | Weekly | WF4 | WF4.2 | AuditService | generateReport() | All Personally Identifiable Information database queries |
-| Failed Login Analysis | Daily | WF4 | WF4.2 | AuditService | generateReport() | Brute force attempts via WF5.1.2 AuthService.authenticate() |
+
 | Permission Review | Quarterly | WF5 | WF5.1 | PermissionManager | getUserPermissions() | Role-Based Access Control assignments |
 | Large Language Model Request Audit | Monthly | WF2 | WF2.1 | AIEngine | analyzeMeeting() | Data sent to external Application Programming Interfaces |
 | Approval Integrity | Weekly | WF3 | WF3.1 | ConsensusEngine | calculateConsensus() | Consensus calculations; Timestamp validation |
@@ -979,7 +1089,7 @@
 
 ---
 
-*Document Version: 2.1*
-*Last Updated: 2026-02-15*
-*Authors: Luke Hill (Lead Architect), Vishesh Raju (Technical Reviewer)*
+*Document Version: 2.4*
+*Last Updated: 2026-03-16*
+*Authors: Vishesh Raju (Developer), Swechcha Ambati (Author)*
 

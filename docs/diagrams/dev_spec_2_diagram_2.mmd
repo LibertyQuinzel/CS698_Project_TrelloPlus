@@ -1,0 +1,259 @@
+classDiagram
+    %% WF1: Meeting Content Capture
+    class MeetingController {
+        -startMeeting()
+        -endMeeting()
+        -recordNote()
+    }
+    
+    class MeetingService {
+        -createMeeting()
+        -updateMeeting()
+        -getMeeting()
+    }
+    
+    class SummaryInputController {
+        -submitSummary()
+    }
+    
+    class SummaryInputService {
+        -validateSummary()
+        -processSummaryInput()
+    }
+
+    %% WF2: AI Summary Generation
+    class SummaryController {
+        -generateSummary()
+        -getSummary()
+    }
+    
+    class SummaryService {
+        -createSummary()
+        -extractActionItems()
+    }
+    
+    class AIEngine {
+        -analyzeMeeting()
+        -generateSummary()
+    }
+    
+    class PromptBuilder {
+        -buildAnalysisPrompt()
+    }
+    
+    class LLMClient {
+        -sendRequest()
+        -parseResponse()
+    }
+    
+    class ContentStructurer {
+        -structure()
+        -formatForReview()
+    }
+
+    %% WF3: Approval Workflow
+    class ApprovalController {
+        -createRequest()
+        -submitResponse()
+    }
+    
+    class ApprovalService {
+        -processApproval()
+        -evaluateQuorum()
+    }
+    
+    class ConsensusEngine {
+        -calculateConsensus()
+        -validateThreshold()
+    }
+    
+    class ReviewController {
+        -getChecklist()
+        -updateChecklistItem()
+    }
+    
+    class ReviewService {
+        -createChecklist()
+        -manageChecklist()
+    }
+
+    %% WF4: Change Execution
+    class ChangeController {
+        -executeChange()
+    }
+    
+    class ChangeService {
+        -applyChanges()
+        -rollback()
+    }
+    
+    class ChangeExecutor {
+        -executeIndividualChange()
+    }
+
+    %% WF5: Infrastructure & Security
+    class AuthController {
+        -login()
+        -register()
+    }
+    
+    class AuthService {
+        -authenticate()
+        -authorize()
+    }
+    
+    class PermissionManager {
+        -checkPermission()
+    }
+    
+    class JWTUtil {
+        -generateToken()
+        -validateToken()
+    }
+
+    %% Repositories
+    class UserRepository {
+        -save()
+        -findById()
+    }
+    
+    class MeetingRepository {
+        -save()
+        -findById()
+    }
+    
+    class SummaryRepository {
+        -save()
+        -findById()
+    }
+    
+    class ApprovalRepository {
+        -save()
+        -findById()
+    }
+
+    %% WF6: Domain Models & Enums
+    class User {
+        -id: UUID
+        -email: String
+        -role: Role
+    }
+    
+    class SessionStatus {
+        <<enumeration>>
+        SCHEDULED
+        IN_PROGRESS
+        COMPLETE
+        CANCELLED
+    }
+    
+    class NoteType {
+        <<enumeration>>
+        ACTION
+        DECISION
+        CHANGE
+        GENERAL
+    }
+    
+    class SummaryStatus {
+        <<enumeration>>
+        PENDING
+        APPROVED
+        REJECTED
+    }
+    
+    class Priority {
+        <<enumeration>>
+        LOW
+        MEDIUM
+        HIGH
+        CRITICAL
+    }
+    
+    class ActionStatus {
+        <<enumeration>>
+        PENDING
+        IN_PROGRESS
+        COMPLETE
+    }
+    
+    class ChangeType {
+        <<enumeration>>
+        WORKFLOW
+        PROCESS
+        CONFIGURATION
+        DATA
+    }
+    
+    class ImpactLevel {
+        <<enumeration>>
+        LOW
+        MEDIUM
+        HIGH
+        CRITICAL
+    }
+    
+    class ApprovalStatus {
+        <<enumeration>>
+        PENDING
+        IN_REVIEW
+        APPROVED
+        REJECTED
+    }
+    
+    class ChecklistStatus {
+        <<enumeration>>
+        PENDING
+        IN_REVIEW
+        COMPLETE
+    }
+    
+    class ExecutionStatus {
+        <<enumeration>>
+        PENDING
+        EXECUTING
+        COMPLETED
+        ROLLED_BACK
+    }
+    
+    class SectionType {
+        <<enumeration>>
+        ACTION_ITEMS
+        DECISIONS
+        CHANGES
+    }
+    
+    class EntityType {
+        <<enumeration>>
+        PROJECT
+        BOARD
+        CARD
+        MEETING
+    }
+    
+    class Permission
+    class Role
+
+    %% Relationships
+    MeetingController --> MeetingService
+    SummaryInputController --> SummaryInputService
+    SummaryController --> SummaryService
+    SummaryService --> AIEngine
+    AIEngine --> LLMClient
+    SummaryService --> ContentStructurer
+    ApprovalController --> ApprovalService
+    ReviewController --> ReviewService
+    ChangeController --> ChangeService
+    AuthController --> AuthService
+    AuthService --> JWTUtil
+
+    MeetingService --> MeetingRepository
+    SummaryService --> SummaryRepository
+    ApprovalService --> ApprovalRepository
+    AuthService --> UserRepository
+    
+    User --> Role
+    Role --> Permission
+    MeetingService --> SessionStatus
+    ContentStructurer --> ActionStatus
+    ContentStructurer --> ChangeType

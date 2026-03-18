@@ -1,0 +1,163 @@
+graph TB
+    subgraph Client["🌐 Client Layer"]
+        Web["Web Browser / Frontend"]
+    end
+
+    subgraph API["REST API Layer (Spring Web)"]
+        WF1_REST["WF1: Board Generation<br/>POST /api/v1/projects<br/>POST /api/v1/boards"]
+        WF2_REST["WF2: Meeting Summary<br/>POST /api/v1/meetings<br/>POST /api/v1/summaries"]
+        WF3_REST["WF3: Change Review<br/>GET /api/v1/changes<br/>POST /api/v1/changes/:id/approve"]
+        Auth_REST["Auth & User<br/>POST /api/v1/auth/login<br/>GET /api/v1/users/:id"]
+    end
+
+    subgraph App["Application Layer (Spring Services)"]
+        WF1_CTRL["ProjectInputController<br/>BoardController"]
+        WF2_CTRL["MeetingController<br/>SummaryController"]
+        WF3_CTRL["ChangePreviewController<br/>ApprovalController"]
+        Auth_CTRL["AuthController"]
+    end
+
+    subgraph Domain["Domain / Business Logic Layer"]
+        subgraph WF1_DOMAIN["WF1: Board Generation"]
+            ProjectSvc["ProjectService"]
+            AIEngine["AIEngine<br/>(OpenAI/Anthropic)"]
+            BoardGen["BoardGenerator"]
+            PromptBldr["PromptBuilder"]
+        end
+
+        subgraph WF2_DOMAIN["WF2: Meeting Summary"]
+            MeetingSvc["MeetingService"]
+            SummarySvc["SummaryService"]
+            ContentStr["ContentStructurer"]
+            ApprovalSvc["ApprovalService"]
+        end
+
+        subgraph WF3_DOMAIN["WF3: Change Review"]
+            ChangePreviewSvc["ChangePreviewService"]
+            DiffCalc["DiffCalculator"]
+            ImpactAnalyzer["ImpactAnalyzer"]
+            ChangeAppSvc["ChangeApplicationService"]
+            ConflictResolver["ConflictResolver"]
+        end
+
+        subgraph Shared["Shared Services"]
+            JWTUtil["JWTUtil"]
+            LLMClient["LLMClient Gateway"]
+            KanbanGW["KanbanBoardGateway"]
+        end
+    end
+
+    subgraph Data["Data Access Layer (Spring Data JPA)"]
+        UserRepo["UserRepository"]
+        ProjectRepo["ProjectRepository"]
+        BoardRepo["BoardRepository"]
+        CardRepo["CardRepository"]
+        MeetingRepo["MeetingRepository"]
+        ChangeRepo["ChangeRepository"]
+        ApprovalRepo["ApprovalRepository"]
+        AuditRepo["AuditRepository"]
+    end
+
+    subgraph DB["PostgreSQL 16.1"]
+        Users["users"]
+        Projects["projects"]
+        Boards["boards"]
+        Cards["cards"]
+        Stages["stages"]
+        Meetings["meeting_sessions"]
+        Changes["changes"]
+        ApprovalReq["approval_requests"]
+        ApprovalRes["approval_responses"]
+        ApprovalDec["approval_decisions"]
+        AuditLog["audit_log"]
+    end
+
+    subgraph External["External Services"]
+        OpenAI["OpenAI<br/>GPT-4 Turbo"]
+        Anthropic["Anthropic<br/>Claude 3"]
+    end
+
+    %% Client to API
+    Web -->|HTTP/REST| WF1_REST
+    Web -->|HTTP/REST| WF2_REST
+    Web -->|HTTP/REST| WF3_REST
+    Web -->|HTTP/REST| Auth_REST
+
+    %% API to App
+    WF1_REST --> WF1_CTRL
+    WF2_REST --> WF2_CTRL
+    WF3_REST --> WF3_CTRL
+    Auth_REST --> Auth_CTRL
+
+    %% App to Domain
+    WF1_CTRL --> ProjectSvc
+    WF1_CTRL --> BoardGen
+    WF2_CTRL --> MeetingSvc
+    WF2_CTRL --> SummarySvc
+    WF3_CTRL --> ChangePreviewSvc
+    Auth_CTRL --> JWTUtil
+
+    %% WF1 Internal Flow
+    ProjectSvc --> AIEngine
+    AIEngine --> PromptBldr
+    AIEngine --> LLMClient
+    AIEngine --> ContentStr
+    ContentStr --> BoardGen
+
+    %% WF2 Internal Flow
+    MeetingSvc --> SummarySvc
+    SummarySvc --> AIEngine
+    SummarySvc --> ApprovalSvc
+
+    %% WF3 Internal Flow
+    ChangePreviewSvc --> DiffCalc
+    ChangePreviewSvc --> ImpactAnalyzer
+    ChangeAppSvc --> ConflictResolver
+    ChangeAppSvc --> TransMgr["TransactionManager"]
+
+    %% Domain to Data Access
+    ProjectSvc --> ProjectRepo
+    BoardGen --> BoardRepo
+    BoardGen --> CardRepo
+    MeetingSvc --> MeetingRepo
+    SummarySvc --> ChangeRepo
+    ApprovalSvc --> ApprovalRepo
+    ChangePreviewSvc --> ChangeRepo
+    ChangeAppSvc --> CardRepo
+    JWTUtil --> UserRepo
+    ImpactAnalyzer --> CardRepo
+    ImpactAnalyzer --> BoardRepo
+    ApprovalSvc --> AuditRepo
+
+    %% Data Access to DB
+    UserRepo --> Users
+    ProjectRepo --> Projects
+    BoardRepo --> Boards
+    CardRepo --> Cards
+    BoardRepo --> Stages
+    MeetingRepo --> Meetings
+    ChangeRepo --> Changes
+    ApprovalRepo --> ApprovalReq
+    ApprovalRepo --> ApprovalRes
+    ApprovalRepo --> ApprovalDec
+    AuditRepo --> AuditLog
+
+    %% External Services
+    LLMClient -->|API Call| OpenAI
+    LLMClient -->|Fallback| Anthropic
+
+    classDef client fill:#3498db,stroke:#2980b9,color:#fff
+    classDef api fill:#9b59b6,stroke:#8e44ad,color:#fff
+    classDef app fill:#e74c3c,stroke:#c0392b,color:#fff
+    classDef domain fill:#f39c12,stroke:#d68910,color:#fff
+    classDef data fill:#27ae60,stroke:#1e8449,color:#fff
+    classDef db fill:#34495e,stroke:#2c3e50,color:#fff
+    classDef external fill:#16a085,stroke:#117a65,color:#fff
+
+    class Web client
+    class WF1_REST,WF2_REST,WF3_REST,Auth_REST api
+    class WF1_CTRL,WF2_CTRL,WF3_CTRL,Auth_CTRL app
+    class WF1_DOMAIN,WF2_DOMAIN,WF3_DOMAIN,Shared domain
+    class Data data
+    class DB,Users,Projects,Boards,Cards,Stages,Meetings,Changes,ApprovalReq,ApprovalRes,ApprovalDec,AuditLog db
+    class OpenAI,Anthropic external

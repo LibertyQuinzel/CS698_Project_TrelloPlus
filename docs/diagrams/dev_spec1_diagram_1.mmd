@@ -1,0 +1,53 @@
+graph TB
+    User["👤 Project Manager"]
+    
+    subgraph CLIENT["🖥️ CLIENT (Browser - React)"]
+        UI["Web UI<br/>React + TypeScript"]
+    end
+    
+    subgraph SERVER["⚙️ SERVER (Spring Boot 3.2.0)"]
+        Controller["ProjectInputController<br/>(REST Endpoint)"]
+        ProjectService["ProjectService"]
+        AIEngine["AIEngine<br/>(Java Service)"]
+        PromptBuilder["PromptBuilder"]
+        BoardGenerator["BoardGenerator"]
+        StageFactory["StageFactory"]
+        TaskExtractor["TaskExtractor"]
+        BoardService["BoardService"]
+        CardService["CardService"]
+    end
+    
+    subgraph CLOUD["☁️ CLOUD (External APIs)"]
+        LLMProvider["OpenAI GPT-4<br/>Anthropic Claude<br/>(Remote LLM APIs)"]
+    end
+    
+    subgraph DATABASE["🗄️ DATABASE (PostgreSQL 16.1)"]
+        ProjectRepo["ProjectRepository<br/>(JPA)"]
+        BoardRepo["BoardRepository<br/>(JPA)"]
+        CardRepo["CardRepository<br/>(JPA)"]
+        DB["PostgreSQL<br/>On-Premise/Cloud"]
+    end
+    
+    User -->|"1. Submit Project"| UI
+    UI -->|"2. HTTP POST<br/>/api/v1/projects"| Controller
+    Controller -->|"3. Request Analysis"| ProjectService
+    ProjectService -->|"4. Analyze"| AIEngine
+    
+    AIEngine -->|"5. Build Prompt"| PromptBuilder
+    PromptBuilder -->|"6. HTTPS Request"| LLMProvider
+    LLMProvider -->|"7. JSON Response"| AIEngine
+    
+    AIEngine -->|"8. Generate Structure"| BoardGenerator
+    BoardGenerator -->|"9. Create Stages"| StageFactory
+    StageFactory -->|"10. Extract Tasks"| TaskExtractor
+    
+    TaskExtractor -->|"11. Save via JPA"| ProjectRepo
+    ProjectRepo -->|"12. INSERT"| DB
+    TaskExtractor -->|"13. Save via JPA"| BoardRepo
+    BoardRepo -->|"14. INSERT"| DB
+    TaskExtractor -->|"15. Save via JPA"| CardRepo
+    CardRepo -->|"16. INSERT"| DB
+    
+    DB -->|"17. SELECT Query"| BoardService
+    BoardService -->|"18. HTTP Response"| UI
+    UI -->|"19. WebSocket/REST"| User

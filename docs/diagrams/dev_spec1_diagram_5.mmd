@@ -1,0 +1,70 @@
+sequenceDiagram
+    actor User
+    participant Controller as ProjectInputController
+    participant Service as ProjectService
+    participant AIEngine
+    participant PromptBuilder
+    participant LLM as LLMClient
+    participant BoardGen as BoardGenerator
+    participant Repo as ProjectRepository
+    participant DB as PostgreSQL
+
+    User->>Controller: POST /api/v1/projects (description)
+    activate Controller
+    
+    Controller->>Service: createProject(request)
+    activate Service
+    
+    Service->>Repo: save(project)
+    activate Repo
+    Repo->>DB: INSERT INTO projects
+    activate DB
+    DB-->>Repo: project_id UUID
+    deactivate DB
+    Repo-->>Service: Project created
+    deactivate Repo
+    
+    Service->>Service: submitForAnalysis()
+    
+    Service->>AIEngine: analyzeProject(description)
+    activate AIEngine
+    
+    AIEngine->>PromptBuilder: buildAnalysisPrompt(description)
+    activate PromptBuilder
+    PromptBuilder-->>AIEngine: prompt: String
+    deactivate PromptBuilder
+    
+    AIEngine->>LLM: sendRequest(prompt)
+    activate LLM
+    LLM->>LLM: Call OpenAI GPT-4 API
+    LLM-->>AIEngine: analysis result (JSON)
+    deactivate LLM
+    
+    AIEngine->>PromptBuilder: buildBoardPrompt(analysis)
+    activate PromptBuilder
+    PromptBuilder-->>AIEngine: board prompt
+    deactivate PromptBuilder
+    
+    AIEngine->>LLM: sendRequest(board_prompt)
+    activate LLM
+    LLM-->>AIEngine: board structure
+    deactivate LLM
+    
+    AIEngine-->>Service: AIAnalysisResult
+    deactivate AIEngine
+    
+    Service->>BoardGen: generateBoard(project, aiResult)
+    activate BoardGen
+    BoardGen->>Repo: save(board with stages)
+    activate Repo
+    Repo->>DB: INSERT INTO boards, stages
+    DB-->>Repo: board_id UUID
+    deactivate Repo
+    BoardGen-->>Service: Board created
+    deactivate BoardGen
+    
+    Service-->>Controller: Project + Board
+    deactivate Service
+    
+    Controller-->>User: 201 Created (project, board, cards)
+    deactivate Controller
