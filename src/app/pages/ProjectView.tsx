@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { useProjectStore } from '../store/projectStore';
 import { useMeetingStore } from '../store/meetingStore';
@@ -8,6 +8,8 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { ChangeDetailModal } from '../components/ChangeDetailModal';
 import { Calendar, Clock, Plus, FileText, ListChecks, CheckCircle, BookOpen } from 'lucide-react';
+import { apiService, mapProjectResponseToProject } from '../services/api';
+import { toast } from 'sonner';
 
 type Tab = 'board' | 'meetings' | 'decisions';
 
@@ -18,6 +20,9 @@ export function ProjectView() {
   const tabFromUrl = searchParams.get('tab') as Tab | null;
   const [activeTab, setActiveTab] = useState<Tab>(tabFromUrl || 'board');
   const [selectedChange, setSelectedChange] = useState<ChangeRequest | null>(null);
+  const [isLoadingProject, setIsLoadingProject] = useState(false);
+  const [projectLoadFailed, setProjectLoadFailed] = useState(false);
+  const attemptedProjectLoadRef = useRef<string | null>(null);
   
   // Update active tab when URL changes
   useEffect(() => {
@@ -27,14 +32,87 @@ export function ProjectView() {
   }, [tabFromUrl]);
   
   const project = useProjectStore((s) => s.projects.find((p) => p.id === projectId));
+  const setProjects = useProjectStore((s) => s.setProjects);
   const allMeetings = useMeetingStore((s) => s.meetings);
   const allChanges = useChangeStore((s) => s.changes);
+
+  useEffect(() => {
+    attemptedProjectLoadRef.current = null;
+    setProjectLoadFailed(false);
+  }, [projectId]);
+
+  const retryLoadProject = () => {
+    attemptedProjectLoadRef.current = null;
+    setProjectLoadFailed(false);
+  };
+
+  // On hard reload the in-memory store is empty, so hydrate from backend once.
+  useEffect(() => {
+    if (!projectId || project || attemptedProjectLoadRef.current === projectId) {
+      return;
+    }
+
+    attemptedProjectLoadRef.current = projectId;
+
+    let isMounted = true;
+
+    const loadProjects = async () => {
+      setIsLoadingProject(true);
+      setProjectLoadFailed(false);
+
+      try {
+        const userProjects = await apiService.getUserProjects();
+        if (!isMounted) return;
+
+        const convertedProjects = userProjects.map(mapProjectResponseToProject);
+        setProjects(convertedProjects);
+
+        const exists = convertedProjects.some((p) => p.id === projectId);
+        if (!exists) {
+          setProjectLoadFailed(true);
+        }
+      } catch (error) {
+        if (!isMounted) return;
+        setProjectLoadFailed(true);
+        toast.error(error instanceof Error ? error.message : 'Failed to load project');
+      } finally {
+        if (isMounted) {
+          setIsLoadingProject(false);
+        }
+      }
+    };
+
+    void loadProjects();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [projectId, project, setProjects]);
+
+  if (isLoadingProject) {
+    return (
+      <div className="p-8 pt-24 text-center">
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading project...</h2>
+      </div>
+    );
+  }
   
-  if (!project) {
+  if (!project && projectLoadFailed) {
     return (
       <div className="p-8 pt-24 text-center">
         <h2 className="text-xl font-semibold text-gray-900 mb-2">Project not found</h2>
-        <Button onClick={() => navigate('/')}>Back to Dashboard</Button>
+        <div className="flex items-center justify-center gap-3">
+          <Button variant="outline" onClick={retryLoadProject}>Retry loading project</Button>
+          <Button onClick={() => navigate('/')}>Back to Dashboard</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="p-8 pt-24 text-center">
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading project...</h2>
       </div>
     );
   }

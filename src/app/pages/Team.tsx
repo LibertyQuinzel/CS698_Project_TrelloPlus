@@ -23,6 +23,20 @@ export function Team() {
       toast.error('Please enter name and email');
       return;
     }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newEmail.trim())) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    // Check if email already exists
+    if (teamMembers.some(member => member.email === newEmail.trim())) {
+      toast.error('This email is already a team member');
+      return;
+    }
+
     addTeamMember({
       id: `tm-${Date.now()}`,
       name: newName.trim(),

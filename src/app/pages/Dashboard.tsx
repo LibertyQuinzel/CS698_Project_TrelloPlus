@@ -1,14 +1,56 @@
-import { Plus } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useNavigate } from 'react-router';
 import { ProjectCard } from '../components/ProjectCard';
 import { useProjectStore } from '../store/projectStore';
+import { useEffect, useRef, useState } from 'react';
+import { apiService, mapProjectResponseToProject } from '../services/api';
+import { toast } from 'sonner';
 
 export function Dashboard() {
   const navigate = useNavigate();
   const projects = useProjectStore((s) => s.projects);
+  const setProjects = useProjectStore((s) => s.setProjects);
+  const shouldBlockInitialUIRef = useRef(projects.length === 0);
+  const [isLoading, setIsLoading] = useState(shouldBlockInitialUIRef.current);
+
+  useEffect(() => {
+    const loadProjects = async () => {
+      const shouldBlockUI = shouldBlockInitialUIRef.current;
+      if (shouldBlockUI) {
+        setIsLoading(true);
+      }
+
+      try {
+        const userProjects = await apiService.getUserProjects();
+        const convertedProjects = userProjects.map(mapProjectResponseToProject);
+        setProjects(convertedProjects);
+      } catch (error) {
+        toast.error('Failed to load projects');
+      } finally {
+        if (shouldBlockUI) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadProjects();
+  }, [setProjects]);
 
   // Empty State
+  if (isLoading) {
+    return (
+      <div className="p-4 md:p-8 pt-20 md:pt-24">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col items-center justify-center py-20">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-4" />
+            <p className="text-gray-600">Loading projects...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (projects.length === 0) {
     return (
       <div className="p-4 md:p-8 pt-20 md:pt-24">
@@ -45,10 +87,6 @@ export function Dashboard() {
             <p className="text-sm md:text-base text-gray-600 mb-6 md:mb-8 text-center max-w-md px-4">
               Get started by creating your first project. Our AI will help you generate a complete Kanban board with tasks.
             </p>
-            <Button onClick={() => navigate('/create-project')} size="lg" className="w-full sm:w-auto mx-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
-              <Plus className="w-5 h-5 mr-2" />
-              Create Your First Project
-            </Button>
           </div>
         </div>
       </div>

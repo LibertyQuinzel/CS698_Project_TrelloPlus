@@ -4,19 +4,22 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
+import { apiService } from '../services/api';
+import { useProjectStore } from '../store/projectStore';
 
 export function Register() {
   const navigate = useNavigate();
-  const [name, setName] = useState('');
+  const updateUser = useProjectStore((s) => s.updateUser);
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
+    if (!fullName.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
       toast.error('Please fill in all fields');
       return;
     }
@@ -33,12 +36,29 @@ export function Register() {
 
     setIsLoading(true);
     
-    // Simulate registration
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const response = await apiService.register({
+        email: email.trim(),
+        password: password.trim(),
+        fullName: fullName.trim(),
+      });
+
+      // Store token and user info
+      localStorage.setItem('authToken', response.token);
+      localStorage.setItem('user', JSON.stringify(response.user));
+      updateUser({
+        name: response.user.fullName || response.user.username || 'User',
+        email: response.user.email || '',
+        role: response.user.role || 'Member',
+      });
+
       toast.success('Account created successfully!');
       navigate('/');
-    }, 1000);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Registration failed');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -60,13 +80,13 @@ export function Register() {
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8">
           <form onSubmit={handleRegister} className="space-y-5">
             <div>
-              <Label htmlFor="register-name">Full Name</Label>
+              <Label htmlFor="register-full-name">Full Name</Label>
               <Input
-                id="register-name"
+                id="register-full-name"
                 type="text"
                 placeholder="John Doe"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
                 className="mt-2"
                 disabled={isLoading}
               />

@@ -97,3 +97,33 @@ pnpm-workspace.yaml
 # IDE workspace settings (keep .vscode/settings.json but ignore others)
 .vscode/launch.json
 .vscode/extensions.json
+
+# ----- Backend / Maven / Java -----
+# Maven build output
+target/
+# Compiled classes (sometimes present outside target)
+classes/
+# Maven generated/backup files
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+.flattened-pom.xml
+
+# Spring Boot build info
+.spring-boot-version.txt
+spring-boot-build-info.properties
+
+# Java / build artifacts
+*.jar.original
+/backend/*.jar
+
+# Gradle cache/build
+.gradle/
+
+# Common build output folders
+bin/
+build/
+out/

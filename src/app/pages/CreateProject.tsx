@@ -7,83 +7,11 @@ import { Textarea } from '../components/ui/textarea';
 import { Label } from '../components/ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
-import { useProjectStore, type Project, type BoardTask } from '../store/projectStore';
+import { useProjectStore, type BoardTask, type BoardColumn } from '../store/projectStore';
 import { toast } from 'sonner';
+import { apiService, mapCardResponseToTask, mapProjectResponseToProject } from '../services/api';
 
 type FormState = 'default' | 'validating' | 'generating' | 'success';
-
-// AI mock task generation based on project description
-function generateMockTasks(projectName: string, description: string): BoardTask[] {
-  const keywords = description.toLowerCase();
-  const today = new Date().toISOString().split('T')[0];
-  const tasks: BoardTask[] = [];
-
-  // Generate contextual tasks based on keywords
-  const taskTemplates: { condition: boolean; tasks: { title: string; desc: string; priority: BoardTask['priority']; col: string }[] }[] = [
-    {
-      condition: keywords.includes('design') || keywords.includes('ui') || keywords.includes('ux'),
-      tasks: [
-        { title: 'Create wireframes', desc: 'Design low-fidelity wireframes for all major screens', priority: 'HIGH', col: 'todo' },
-        { title: 'Design system setup', desc: 'Set up color palette, typography, and component library', priority: 'MEDIUM', col: 'todo' },
-        { title: 'UI mockups review', desc: 'Review and iterate on high-fidelity mockups', priority: 'MEDIUM', col: 'in-progress' },
-      ],
-    },
-    {
-      condition: keywords.includes('develop') || keywords.includes('build') || keywords.includes('code') || keywords.includes('app'),
-      tasks: [
-        { title: 'Set up development environment', desc: 'Initialize repository and configure CI/CD', priority: 'CRITICAL', col: 'todo' },
-        { title: 'Implement core features', desc: 'Build the main functionality modules', priority: 'HIGH', col: 'todo' },
-        { title: 'Write unit tests', desc: 'Create comprehensive test coverage for core modules', priority: 'MEDIUM', col: 'in-progress' },
-      ],
-    },
-    {
-      condition: keywords.includes('market') || keywords.includes('campaign') || keywords.includes('social'),
-      tasks: [
-        { title: 'Define target audience', desc: 'Research and document target demographics', priority: 'HIGH', col: 'todo' },
-        { title: 'Create content calendar', desc: 'Plan content across all channels', priority: 'MEDIUM', col: 'todo' },
-        { title: 'Design marketing assets', desc: 'Create banners, social posts, and email templates', priority: 'MEDIUM', col: 'in-progress' },
-      ],
-    },
-  ];
-
-  // Find matching templates
-  let matchedTasks: { title: string; desc: string; priority: BoardTask['priority']; col: string }[] = [];
-  for (const template of taskTemplates) {
-    if (template.condition) {
-      matchedTasks = [...matchedTasks, ...template.tasks];
-    }
-  }
-
-  // If no keywords matched, generate generic tasks
-  if (matchedTasks.length === 0) {
-    matchedTasks = [
-      { title: 'Define project scope', desc: `Outline the goals and requirements for ${projectName}`, priority: 'HIGH', col: 'todo' },
-      { title: 'Create project plan', desc: 'Break down milestones and deliverables', priority: 'HIGH', col: 'todo' },
-      { title: 'Assign team roles', desc: 'Determine responsibilities for each team member', priority: 'MEDIUM', col: 'todo' },
-      { title: 'Initial research', desc: 'Research best practices and competitive landscape', priority: 'MEDIUM', col: 'in-progress' },
-      { title: 'Set up communication channels', desc: 'Configure Slack channels, meeting cadence', priority: 'LOW', col: 'done' },
-    ];
-  }
-
-  // Always add a few more generic tasks
-  matchedTasks.push(
-    { title: 'Stakeholder review', desc: 'Present progress to stakeholders and gather feedback', priority: 'MEDIUM', col: 'review' },
-    { title: 'Documentation', desc: 'Write comprehensive project documentation', priority: 'LOW', col: 'todo' },
-  );
-
-  matchedTasks.forEach((t, i) => {
-    tasks.push({
-      id: `gen-${Date.now()}-${i}`,
-      title: t.title,
-      description: t.desc,
-      priority: t.priority,
-      createdDate: today,
-      columnId: t.col,
-    });
-  });
-
-  return tasks;
-}
 
 export function CreateProject() {
   const navigate = useNavigate();
@@ -93,16 +21,11 @@ export function CreateProject() {
   const [projectDescription, setProjectDescription] = useState('');
   const [errors, setErrors] = useState<{ name?: string; description?: string }>({});
   const [showPreview, setShowPreview] = useState(false);
+  const [generatedColumns, setGeneratedColumns] = useState<BoardColumn[]>([]);
   const [generatedTasks, setGeneratedTasks] = useState<BoardTask[]>([]);
+  const [createdProjectId, setCreatedProjectId] = useState<string | null>(null);
 
-  const defaultColumns = [
-    { id: 'todo', title: 'To Do', color: 'bg-gray-100' },
-    { id: 'in-progress', title: 'In Progress', color: 'bg-blue-100' },
-    { id: 'review', title: 'Review', color: 'bg-yellow-100' },
-    { id: 'done', title: 'Done', color: 'bg-green-100' },
-  ];
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const newErrors: { name?: string; description?: string } = {};
@@ -122,67 +45,67 @@ export function CreateProject() {
     setErrors({});
     setFormState('generating');
 
-    // Simulate AI generation
-    setTimeout(() => {
-      const tasks = generateMockTasks(projectName, projectDescription);
-      setGeneratedTasks(tasks);
+    try {
+      const response = await apiService.createProject({
+        name: projectName.trim(),
+        description: projectDescription.trim(),
+        generateTasks: true,
+      });
+
+      const newProject = mapProjectResponseToProject(response);
+
+      addProject(newProject);
       setFormState('success');
       setShowPreview(true);
-    }, 2500);
+      setCreatedProjectId(response.id);
+      
+      // Store generated tasks for preview
+      setGeneratedColumns(newProject.columns);
+      setGeneratedTasks(response.tasks.map(mapCardResponseToTask));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to create project');
+      setFormState('default');
+    }
   };
 
-  const handleCreateEmptyBoard = () => {
+  const handleCreateEmptyBoard = async () => {
     if (!projectName.trim()) {
       setErrors({ name: 'Project name is required' });
       setFormState('validating');
       return;
     }
 
-    const newId = Date.now().toString();
-    const newProject: Project = {
-      id: newId,
-      name: projectName.trim(),
-      description: projectDescription.trim() || 'No description provided',
-      boardId: newId,
-      members: [
-        { id: 'm-owner', name: 'John Doe', email: 'john@example.com', avatar: 'https://i.pravatar.cc/150?img=12', role: 'owner' },
-      ],
-      columns: [
-        { id: 'todo', title: 'To Do', color: 'bg-gray-100' },
-        { id: 'in-progress', title: 'In Progress', color: 'bg-blue-100' },
-        { id: 'done', title: 'Done', color: 'bg-green-100' },
-      ],
-      tasks: [],
-      decisions: [],
-    };
+    setFormState('generating');
+    try {
+      const response = await apiService.createProject({
+        name: projectName.trim(),
+        description: projectDescription.trim() || 'No description provided',
+        generateTasks: false,
+      });
 
-    addProject(newProject);
-    toast.success('Empty board created!');
-    navigate(`/project/${newId}`);
+      const newProject = mapProjectResponseToProject(response);
+
+      addProject(newProject);
+      toast.success('Empty board created!');
+      navigate(`/project/${response.id}?tab=board`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to create project');
+      setFormState('default');
+    }
   };
 
   const handleConfirmBoard = () => {
-    const newId = Date.now().toString();
-    const newProject: Project = {
-      id: newId,
-      name: projectName.trim(),
-      description: projectDescription.trim(),
-      boardId: newId,
-      members: [
-        { id: 'm-owner', name: 'John Doe', email: 'john@example.com', avatar: 'https://i.pravatar.cc/150?img=12', role: 'owner' },
-      ],
-      columns: defaultColumns,
-      tasks: [], // Empty tasks array for AI-generated boards
-      decisions: [],
-    };
-
-    addProject(newProject);
+    if (!createdProjectId) {
+      toast.error('Project ID not found. Please try again.');
+      return;
+    }
+    
     toast.success('Project created successfully!');
-    navigate(`/project/${newId}`);
+    navigate(`/project/${createdProjectId}?tab=board`);
   };
 
   // Group generated tasks by column for preview
-  const tasksByColumn = defaultColumns.map((col) => ({
+  const tasksByColumn = generatedColumns.map((col) => ({
     ...col,
     tasks: generatedTasks.filter((t) => t.columnId === col.id),
   }));

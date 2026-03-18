@@ -7,7 +7,10 @@ export function Logout() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Simulate logout process
+    // Clear authentication data
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    
     const timer = setTimeout(() => {
       toast.success('You have been logged out successfully');
       navigate('/login');

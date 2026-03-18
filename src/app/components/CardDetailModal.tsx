@@ -15,7 +15,7 @@ interface CardDetailModalProps {
   task: BoardTask;
   projectId?: string;
   onClose: () => void;
-  onUpdate: (task: BoardTask) => void;
+  onUpdate: (task: BoardTask) => Promise<void> | void;
   onDelete: (taskId: string) => void;
 }
 
@@ -25,16 +25,18 @@ export function CardDetailModal({ task, onClose, onUpdate, onDelete }: CardDetai
   const [modalState, setModalState] = useState<ModalState>('view');
   const [editedTask, setEditedTask] = useState<BoardTask>(task);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setModalState('saving');
-    
-    // Simulate save operation
-    setTimeout(() => {
+
+    try {
+      await onUpdate(editedTask);
       setModalState('success');
       setTimeout(() => {
-        onUpdate(editedTask);
-      }, 800);
-    }, 1000);
+        setModalState('view');
+      }, 600);
+    } catch {
+      setModalState('editing');
+    }
   };
 
   const handleDelete = () => {

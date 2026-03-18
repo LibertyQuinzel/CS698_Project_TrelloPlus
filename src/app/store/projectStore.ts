@@ -46,204 +46,7 @@ export interface Project {
   decisions: ProjectDecision[];
 }
 
-// Default mock members
-const defaultMembers: ProjectMember[] = [
-  { id: 'm1', name: 'John Doe', email: 'john@example.com', role: 'owner' },
-  { id: 'm2', name: 'Sarah Chen', email: 'sarah@example.com', role: 'editor' },
-  { id: 'm3', name: 'Mike Johnson', email: 'mike@example.com', role: 'editor' },
-];
-
-const initialProjects: Project[] = [
-  {
-    id: '1',
-    name: 'Website Redesign',
-    description: 'Complete redesign of the company website with modern UI/UX principles',
-    boardId: '1',
-    members: [
-      ...defaultMembers,
-      { id: 'm4', name: 'Alex Kim', email: 'alex@example.com', role: 'editor' },
-      { id: 'm5', name: 'Emma Davis', email: 'emma@example.com', role: 'viewer' },
-    ],
-    columns: [
-      { id: 'todo', title: 'To Do', color: 'bg-gray-100' },
-      { id: 'in-progress', title: 'In Progress', color: 'bg-blue-100' },
-      { id: 'review', title: 'Review', color: 'bg-yellow-100' },
-      { id: 'done', title: 'Done', color: 'bg-green-100' },
-    ],
-    tasks: [
-      {
-        id: 't1',
-        title: 'Design homepage mockup',
-        description: 'Create high-fidelity mockups for the new homepage design',
-        assignee: { name: 'Sarah Chen' },
-        priority: 'HIGH',
-        createdDate: '2026-02-20',
-        columnId: 'todo',
-      },
-      {
-        id: 't2',
-        title: 'Set up project repository',
-        description: 'Initialize Git repository and set up project structure',
-        assignee: { name: 'Mike Johnson' },
-        priority: 'CRITICAL',
-        createdDate: '2026-02-21',
-        columnId: 'todo',
-      },
-      {
-        id: 't3',
-        title: 'Implement authentication',
-        description: 'Build user authentication system with JWT tokens',
-        assignee: { name: 'Alex Kim' },
-        priority: 'HIGH',
-        createdDate: '2026-02-22',
-        columnId: 'in-progress',
-      },
-      {
-        id: 't4',
-        title: 'Write API documentation',
-        description: 'Document all API endpoints with examples',
-        assignee: { name: 'Emma Davis' },
-        priority: 'MEDIUM',
-        createdDate: '2026-02-18',
-        columnId: 'in-progress',
-      },
-      {
-        id: 't5',
-        title: 'Code review - User module',
-        description: 'Review pull request for user management module',
-        assignee: { name: 'David Lee' },
-        priority: 'MEDIUM',
-        createdDate: '2026-02-15',
-        columnId: 'review',
-      },
-      {
-        id: 't6',
-        title: 'Database schema design',
-        description: 'Completed initial database schema and migrations',
-        assignee: { name: 'Lisa Wang' },
-        priority: 'HIGH',
-        createdDate: '2026-02-10',
-        columnId: 'done',
-      },
-    ],
-    decisions: [
-      {
-        id: 'd1',
-        description: 'Move forward with React 19 migration',
-        meetingId: 'm1',
-        meetingTitle: 'Q1 Product Planning Meeting',
-        sourceContext: 'Technical stack discussion',
-        approvedAt: '2026-02-28',
-        approvedBy: 'Team Consensus',
-      },
-      {
-        id: 'd2',
-        description: 'Decided on the tech stack for the project',
-        meetingId: 'm2',
-        meetingTitle: 'Tech Stack Selection Meeting',
-        sourceContext: 'Technology evaluation',
-        approvedAt: '2026-02-15',
-        approvedBy: 'John Doe',
-      },
-    ],
-  },
-  {
-    id: '2',
-    name: 'Mobile App Development',
-    description: 'Build a cross-platform mobile application for iOS and Android',
-    boardId: '2',
-    members: defaultMembers.slice(0, 2),
-    columns: [
-      { id: 'todo', title: 'To Do', color: 'bg-gray-100' },
-      { id: 'in-progress', title: 'In Progress', color: 'bg-blue-100' },
-      { id: 'review', title: 'Review', color: 'bg-yellow-100' },
-      { id: 'done', title: 'Done', color: 'bg-green-100' },
-    ],
-    tasks: [
-      {
-        id: 't7',
-        title: 'Define app architecture',
-        description: 'Choose tech stack and define the app architecture',
-        assignee: { name: 'John Doe' },
-        priority: 'HIGH',
-        createdDate: '2026-02-25',
-        columnId: 'todo',
-      },
-      {
-        id: 't8',
-        title: 'Create wireframes',
-        description: 'Design wireframes for all major screens',
-        assignee: { name: 'Sarah Chen' },
-        priority: 'MEDIUM',
-        createdDate: '2026-02-26',
-        columnId: 'todo',
-      },
-    ],
-    decisions: [
-      {
-        id: 'd3',
-        description: 'Approved the project scope and timeline',
-        meetingId: 'm3',
-        meetingTitle: 'Project Kickoff Meeting',
-        sourceContext: 'Project planning',
-        approvedAt: '2026-02-25',
-        approvedBy: 'John Doe',
-      },
-      {
-        id: 'd4',
-        description: 'Decided on the tech stack for the project',
-        meetingId: 'm4',
-        meetingTitle: 'Tech Stack Selection Meeting',
-        sourceContext: 'Technology evaluation',
-        approvedAt: '2026-02-26',
-        approvedBy: 'Sarah Chen',
-      },
-    ],
-  },
-  {
-    id: '3',
-    name: 'Marketing Campaign Q1',
-    description: 'Launch new marketing campaign for Q1 with social media strategy',
-    boardId: '3',
-    members: defaultMembers,
-    columns: [
-      { id: 'todo', title: 'To Do', color: 'bg-gray-100' },
-      { id: 'in-progress', title: 'In Progress', color: 'bg-blue-100' },
-      { id: 'done', title: 'Done', color: 'bg-green-100' },
-    ],
-    tasks: [
-      {
-        id: 't9',
-        title: 'Create social media calendar',
-        description: 'Plan content for all social media channels',
-        assignee: { name: 'Mike Johnson' },
-        priority: 'HIGH',
-        createdDate: '2026-02-15',
-        columnId: 'done',
-      },
-    ],
-    decisions: [
-      {
-        id: 'd5',
-        description: 'Approved the project scope and timeline',
-        meetingId: 'm5',
-        meetingTitle: 'Project Kickoff Meeting',
-        sourceContext: 'Campaign planning',
-        approvedAt: '2026-02-15',
-        approvedBy: 'John Doe',
-      },
-      {
-        id: 'd6',
-        description: 'Decided on the tech stack for the project',
-        meetingId: 'm6',
-        meetingTitle: 'Strategy Alignment Meeting',
-        sourceContext: 'Tools selection',
-        approvedAt: '2026-02-20',
-        approvedBy: 'Sarah Chen',
-      },
-    ],
-  },
-];
+const initialProjects: Project[] = [];
 
 // User profile
 export interface UserProfile {
@@ -284,18 +87,40 @@ interface ProjectStore {
   
   addDecision: (projectId: string, decision: ProjectDecision) => void;
   
+  setProjects: (projects: Project[]) => void;
+  
   updateUser: (updates: Partial<UserProfile>) => void;
   addTeamMember: (member: TeamMember) => void;
   removeTeamMember: (memberId: string) => void;
 }
 
+// Get initial user from localStorage
+const getInitialUser = (): UserProfile => {
+  try {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      const parsed = JSON.parse(storedUser);
+      const resolvedName = parsed.fullName || parsed.full_name || parsed.username || 'User';
+      const resolvedRole = parsed.role || 'Member';
+      return {
+        name: resolvedName,
+        email: parsed.email || '',
+        role: resolvedRole,
+      };
+    }
+  } catch (e) {
+    console.error('Failed to load user from localStorage:', e);
+  }
+  return {
+    name: 'User',
+    email: '',
+    role: 'Member',
+  };
+};
+
 export const useProjectStore = create<ProjectStore>((set) => ({
   projects: initialProjects,
-  user: {
-    name: 'John Doe',
-    email: 'john.doe@flowboard.com',
-    role: 'Manager',
-  },
+  user: getInitialUser(),
   teamMembers: [
     { id: 'tm1', name: 'John Doe', email: 'john@flowboard.com', role: 'Admin', status: 'active' },
     { id: 'tm2', name: 'Sarah Chen', email: 'sarah@flowboard.com', role: 'Member', status: 'active' },
@@ -399,6 +224,8 @@ export const useProjectStore = create<ProjectStore>((set) => ({
       p.id === projectId ? { ...p, decisions: [...p.decisions, decision] } : p
     ),
   })),
+  
+  setProjects: (projects) => set({ projects }),
   
   updateUser: (updates) => set((state) => ({ user: { ...state.user, ...updates } })),
   

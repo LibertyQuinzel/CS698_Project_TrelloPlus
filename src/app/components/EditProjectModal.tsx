@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { UserPlus, Trash2, Check, Pencil } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from './ui/dialog';
 import { Button } from './ui/button';
@@ -10,6 +10,7 @@ import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { type Project, type ProjectMember, useProjectStore } from '../store/projectStore';
 import { toast } from 'sonner';
+import { apiService } from '../services/api';
 
 interface EditProjectModalProps {
   project: Project;
@@ -25,33 +26,106 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
   const [newMemberRole, setNewMemberRole] = useState<ProjectMember['role']>('viewer');
   const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
   const [editingColumnTitle, setEditingColumnTitle] = useState('');
+  const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+  const [membersLoadFailed, setMembersLoadFailed] = useState(false);
 
-  const handleSaveGeneral = () => {
-    updateProject(project.id, { name: projectName, description: projectDescription });
-    toast.success('Project updated successfully');
+  const normalizeMembers = (backendMembers: Array<{ id: string; email: string; username?: string; fullName?: string; role?: string }>): ProjectMember[] => {
+    return backendMembers.map((member) => {
+      const backendRole = String(member.role || 'viewer').toLowerCase();
+      const normalizedRole: ProjectMember['role'] =
+        backendRole === 'owner' ? 'owner' : backendRole === 'viewer' ? 'viewer' : 'editor';
+
+      return {
+        id: member.id,
+        name: member.fullName || member.username || member.email,
+        email: member.email,
+        role: normalizedRole,
+      };
+    });
   };
 
-  const handleAddMember = () => {
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadMembers = async () => {
+      setIsLoadingMembers(true);
+      setMembersLoadFailed(false);
+
+      try {
+        const backendMembers = await apiService.getProjectMembers(project.id);
+        if (!isMounted) return;
+        updateProject(project.id, { members: normalizeMembers(backendMembers) });
+      } catch {
+        try {
+          const latestProject = await apiService.getProject(project.id);
+          if (!isMounted) return;
+          updateProject(project.id, { members: normalizeMembers(latestProject.members || []) });
+        } catch {
+          if (!isMounted) return;
+          setMembersLoadFailed(true);
+          toast.error('Failed to refresh project members. Please reopen this dialog and try again.');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingMembers(false);
+        }
+      }
+    };
+
+    void loadMembers();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [project.id, updateProject]);
+
+  const handleSaveGeneral = async () => {
+    try {
+      const updated = await apiService.updateProject(project.id, {
+        name: projectName,
+        description: projectDescription,
+      });
+      updateProject(project.id, {
+        name: updated.name,
+        description: updated.description,
+      });
+      toast.success('Project updated successfully');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update project');
+    }
+  };
+
+  const handleAddMember = async () => {
     if (!newMemberName.trim() || !newMemberEmail.trim()) {
       toast.error('Please enter both name and email');
       return;
     }
-    const newMember: ProjectMember = {
-      id: `m-${Date.now()}`,
-      name: newMemberName.trim(),
-      email: newMemberEmail.trim(),
-      role: newMemberRole,
-    };
-    addMemberToProject(project.id, newMember);
-    setNewMemberName('');
-    setNewMemberEmail('');
-    setNewMemberRole('viewer');
-    toast.success(`${newMember.name} added to project`);
+    try {
+      const createdMember = await apiService.addTeamMember(project.id, newMemberEmail.trim(), newMemberName.trim(), newMemberRole);
+      const newMember: ProjectMember = {
+        id: createdMember.id,
+        name: createdMember.fullName || createdMember.username || newMemberName.trim(),
+        email: createdMember.email,
+        role: createdMember.role || newMemberRole,
+      };
+      addMemberToProject(project.id, newMember);
+      setNewMemberName('');
+      setNewMemberEmail('');
+      setNewMemberRole('viewer');
+      toast.success(`${newMember.name} added to project`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to add member');
+    }
   };
 
-  const handleRemoveMember = (memberId: string, memberName: string) => {
-    removeMemberFromProject(project.id, memberId);
-    toast.success(`${memberName} removed from project`);
+  const handleRemoveMember = async (memberId: string, memberName: string) => {
+    try {
+      await apiService.removeTeamMember(project.id, memberId);
+      removeMemberFromProject(project.id, memberId);
+      toast.success(`${memberName} removed from project`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to remove member');
+    }
   };
 
   const handleStartEditColumn = (columnId: string, currentTitle: string) => {
@@ -59,10 +133,15 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
     setEditingColumnTitle(currentTitle);
   };
 
-  const handleSaveColumnName = () => {
+  const handleSaveColumnName = async () => {
     if (editingColumnId && editingColumnTitle.trim()) {
-      renameColumn(project.id, editingColumnId, editingColumnTitle.trim());
-      toast.success('Column renamed');
+      try {
+        await apiService.renameStage(editingColumnId, { title: editingColumnTitle.trim() });
+        renameColumn(project.id, editingColumnId, editingColumnTitle.trim());
+        toast.success('Column renamed');
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Failed to rename column');
+      }
     }
     setEditingColumnId(null);
     setEditingColumnTitle('');
@@ -113,7 +192,7 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
                   className="mt-2"
                 />
               </div>
-              <Button onClick={handleSaveGeneral} className="w-full">
+              <Button onClick={() => void handleSaveGeneral()} className="w-full">
                 Save Changes
               </Button>
             </TabsContent>
@@ -122,7 +201,12 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
             <TabsContent value="members" className="space-y-4 mt-4">
               {/* Current Members */}
               <div>
-                <Label className="text-sm mb-3 block">Current Members ({currentProject.members.length})</Label>
+                <Label className="text-sm mb-3 block">Current Members ({isLoadingMembers ? '...' : currentProject.members.length})</Label>
+                {membersLoadFailed && (
+                  <p className="text-xs text-red-600 mb-2">
+                    Could not load live members from server. Showing cached data.
+                  </p>
+                )}
                 <div className="space-y-2 max-h-[200px] overflow-y-auto">
                   {currentProject.members.map((member) => (
                     <div key={member.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50">
@@ -144,7 +228,7 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 text-red-500 hover:text-red-700"
-                            onClick={() => handleRemoveMember(member.id, member.name)}
+                            onClick={() => void handleRemoveMember(member.id, member.name)}
                             aria-label={`Remove ${member.name} from project`}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -180,7 +264,7 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
                       <SelectItem value="viewer">Viewer</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button onClick={handleAddMember} className="w-full">
+                  <Button onClick={() => void handleAddMember()} className="w-full">
                     <UserPlus className="w-4 h-4 mr-2" />
                     Add Member
                   </Button>
@@ -200,12 +284,12 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
                         onChange={(e) => setEditingColumnTitle(e.target.value)}
                         className="h-8"
                         autoFocus
-                        onKeyDown={(e) => e.key === 'Enter' && handleSaveColumnName()}
+                        onKeyDown={(e) => e.key === 'Enter' && void handleSaveColumnName()}
                       />
                       <Button 
                         size="icon" 
                         className="h-8 w-8" 
-                        onClick={handleSaveColumnName}
+                        onClick={() => void handleSaveColumnName()}
                         aria-label="Save column name"
                       >
                         <Check className="w-4 h-4" />
