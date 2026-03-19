@@ -65,6 +65,7 @@ export function KanbanBoard() {
         title: updatedTask.title,
         description: updatedTask.description,
         priority: updatedTask.priority,
+        assignee_id: updatedTask.assignee?.id ?? null,
       });
       updateTask(project.id, mapCardResponseToTask(updated));
       setSelectedTask(null);
@@ -83,17 +84,14 @@ export function KanbanBoard() {
     }
   };
 
-  const handleCreateTask = async (taskData: { title: string; description: string; priority: BoardTask['priority']; columnId: string }) => {
-    try {
-      const created = await apiService.createCard(taskData.columnId, {
-        title: taskData.title,
-        description: taskData.description,
-        priority: taskData.priority,
-      });
-      addTask(project.id, mapCardResponseToTask(created));
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to create task');
-    }
+  const handleCreateTask = async (taskData: { title: string; description: string; priority: BoardTask['priority']; columnId: string; assigneeId?: string }) => {
+    const created = await apiService.createCard(taskData.columnId, {
+      title: taskData.title,
+      description: taskData.description,
+      priority: taskData.priority,
+      assignee_id: taskData.assigneeId ?? null,
+    });
+    addTask(project.id, mapCardResponseToTask(created));
   };
 
   const handleAddColumn = async () => {
@@ -262,6 +260,7 @@ export function KanbanBoard() {
           <CardDetailModal
             task={selectedTask}
             projectId={project.id}
+            projectMembers={project.members}
             onClose={() => setSelectedTask(null)}
             onUpdate={handleUpdateTask}
             onDelete={handleDeleteTask}
@@ -273,6 +272,7 @@ export function KanbanBoard() {
           <CreateTaskModal
             columnId={createTaskColumnId}
             columnTitle={createTaskColumn.title}
+            projectMembers={project.members}
             onClose={() => setCreateTaskColumnId(null)}
             onCreateTask={handleCreateTask}
           />

@@ -28,6 +28,7 @@ export interface BoardTask {
   title: string;
   description: string;
   assignee?: {
+    id: string;
     name: string;
   };
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';

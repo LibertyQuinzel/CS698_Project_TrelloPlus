@@ -28,6 +28,10 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
   const [editingColumnTitle, setEditingColumnTitle] = useState('');
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
   const [membersLoadFailed, setMembersLoadFailed] = useState(false);
+  const [isSavingGeneral, setIsSavingGeneral] = useState(false);
+  const [isAddingMember, setIsAddingMember] = useState(false);
+  const [activeMemberMutationId, setActiveMemberMutationId] = useState<string | null>(null);
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const currentUserId = (() => {
     try {
       const rawUser = localStorage.getItem('user');
@@ -89,6 +93,20 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
   }, [project.id, updateProject]);
 
   const handleSaveGeneral = async () => {
+    if (!projectName.trim()) {
+      toast.error('Project name is required');
+      return;
+    }
+    if (projectName.trim().length > 255) {
+      toast.error('Project name must be 255 characters or fewer');
+      return;
+    }
+    if (projectDescription.trim().length > 5000) {
+      toast.error('Project description must be 5000 characters or fewer');
+      return;
+    }
+
+    setIsSavingGeneral(true);
     try {
       const updated = await apiService.updateProject(project.id, {
         name: projectName,
@@ -101,6 +119,8 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
       toast.success('Project updated successfully');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to update project');
+    } finally {
+      setIsSavingGeneral(false);
     }
   };
 
@@ -114,6 +134,16 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
       toast.error('Please enter an email address');
       return;
     }
+    if (!emailRegex.test(newMemberEmail.trim())) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    if (currentProject.members.some((member) => member.email.toLowerCase() === newMemberEmail.trim().toLowerCase())) {
+      toast.error('This user is already a member of the project');
+      return;
+    }
+
+    setIsAddingMember(true);
     try {
       const createdMember = await apiService.addTeamMember(project.id, newMemberEmail.trim(), newMemberName.trim(), newMemberRole);
       const resolvedName = createdMember.fullName || createdMember.username || newMemberName.trim() || createdMember.email;
@@ -130,6 +160,8 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
       toast.success(`${newMember.name} added to project`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to add member');
+    } finally {
+      setIsAddingMember(false);
     }
   };
 
@@ -139,12 +171,15 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
       return;
     }
 
+    setActiveMemberMutationId(memberId);
     try {
       await apiService.removeTeamMember(project.id, memberId);
       removeMemberFromProject(project.id, memberId);
       toast.success(`${memberName} removed from project`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to remove member');
+    } finally {
+      setActiveMemberMutationId(null);
     }
   };
 
@@ -154,6 +189,7 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
       return;
     }
 
+    setActiveMemberMutationId(memberId);
     try {
       const updatedMember = await apiService.updateTeamMemberRole(project.id, memberId, role);
       updateProject(project.id, {
@@ -166,6 +202,8 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
       toast.success(`${memberName} is now ${role}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to update member role');
+    } finally {
+      setActiveMemberMutationId(null);
     }
   };
 
@@ -235,7 +273,7 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
                   className="mt-2"
                 />
               </div>
-              <Button onClick={() => void handleSaveGeneral()} className="w-full">
+              <Button onClick={() => void handleSaveGeneral()} className="w-full" disabled={isSavingGeneral}>
                 Save Changes
               </Button>
             </TabsContent>
@@ -271,6 +309,7 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
                           <Select
                             value={member.role}
                             onValueChange={(value: 'editor' | 'viewer') => void handleUpdateMemberRole(member.id, member.name, value)}
+                            disabled={activeMemberMutationId === member.id}
                           >
                             <SelectTrigger className="h-8 w-28 text-xs">
                               <SelectValue />
@@ -288,6 +327,7 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
                             className="h-7 w-7 text-red-500 hover:text-red-700"
                             onClick={() => void handleRemoveMember(member.id, member.name)}
                             aria-label={`Remove ${member.name} from project`}
+                            disabled={activeMemberMutationId === member.id}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
@@ -329,9 +369,9 @@ export function EditProjectModal({ project, onClose }: EditProjectModalProps) {
                       <SelectItem value="viewer">Viewer</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button onClick={() => void handleAddMember()} className="w-full" disabled={!canManageMembers}>
+                  <Button onClick={() => void handleAddMember()} className="w-full" disabled={!canManageMembers || isAddingMember}>
                     <UserPlus className="w-4 h-4 mr-2" />
-                    Add Member
+                    {isAddingMember ? 'Adding...' : 'Add Member'}
                   </Button>
                 </div>
               </div>
