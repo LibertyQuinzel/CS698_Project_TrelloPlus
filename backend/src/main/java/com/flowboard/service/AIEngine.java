@@ -110,4 +110,125 @@ public class AIEngine {
         task.stageTitle = stageTitle;
         return task;
     }
+
+    /**
+     * Analyzes meeting transcript to extract action items, decisions, and suggested changes
+     * Currently using mock data - in production would call OpenAI/Anthropic API with LangChain4j
+     */
+    public MeetingAnalysisResult analyzeMeetingTranscript(String transcript) {
+        return generateMockMeetingAnalysis(transcript);
+    }
+
+    private MeetingAnalysisResult generateMockMeetingAnalysis(String transcript) {
+        MeetingAnalysisResult result = new MeetingAnalysisResult();
+
+        String lower = transcript.toLowerCase();
+        
+        // Extract mock action items based on keywords
+        if (lower.contains("task") || lower.contains("do") || lower.contains("action")) {
+            result.addActionItem(
+                "Complete implementation of user authentication module",
+                "Discussed need for improved security measures",
+                "HIGH"
+            );
+            result.addActionItem(
+                "Schedule follow-up meeting with stakeholders",
+                "Need to confirm requirements and timeline",
+                "MEDIUM"
+            );
+            result.addActionItem(
+                "Document API specification",
+                "Required before development phase",
+                "MEDIUM"
+            );
+        }
+
+        // Always generate mock decisions (for testing with any transcript)
+        // In production, these would be extracted from AI analysis
+        result.addDecision(
+            "Technology stack: React + Spring Boot",
+            "Decision made after evaluating multiple options"
+        );
+        result.addDecision(
+            "Sprint duration: 2 weeks",
+            "Agreed upon by all team members"
+        );
+        result.addDecision(
+            "Database: PostgreSQL for production data",
+            "Chosen for scalability and compatibility with current infrastructure"
+        );
+
+        // Extract mock changes based on keywords
+        if (lower.contains("move") || lower.contains("update") || lower.contains("card") || lower.contains("task")) {
+            result.addChange(
+                "MOVE_CARD",
+                "Move 'API Design' card from To Do to In Progress",
+                "Priority change based on stakeholder feedback"
+            );
+            result.addChange(
+                "UPDATE_CARD",
+                "Update 'User Auth' card description with security requirements",
+                "Clarification from team discussion"
+            );
+        }
+
+        return result;
+    }
+
+    // Inner class for meeting analysis results
+    public static class MeetingAnalysisResult {
+        private List<ActionItemData> actionItems = new java.util.ArrayList<>();
+        private List<DecisionData> decisions = new java.util.ArrayList<>();
+        private List<ChangeData> changes = new java.util.ArrayList<>();
+
+        public void addActionItem(String description, String context, String priority) {
+            actionItems.add(new ActionItemData(description, context, priority));
+        }
+
+        public void addDecision(String description, String context) {
+            decisions.add(new DecisionData(description, context));
+        }
+
+        public void addChange(String type, String description, String context) {
+            changes.add(new ChangeData(type, description, context));
+        }
+
+        public List<ActionItemData> getActionItems() { return actionItems; }
+        public List<DecisionData> getDecisions() { return decisions; }
+        public List<ChangeData> getChanges() { return changes; }
+
+        public static class ActionItemData {
+            public String description;
+            public String sourceContext;
+            public String priority;
+
+            public ActionItemData(String description, String sourceContext, String priority) {
+                this.description = description;
+                this.sourceContext = sourceContext;
+                this.priority = priority;
+            }
+        }
+
+        public static class DecisionData {
+            public String description;
+            public String sourceContext;
+
+            public DecisionData(String description, String sourceContext) {
+                this.description = description;
+                this.sourceContext = sourceContext;
+            }
+        }
+
+        public static class ChangeData {
+            public String type;
+            public String description;
+            public String context;
+
+            public ChangeData(String type, String description, String context) {
+                this.type = type;
+                this.description = description;
+                this.context = context;
+            }
+        }
+    }
 }

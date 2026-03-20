@@ -1,0 +1,223 @@
+package com.flowboard.service;
+
+import com.flowboard.dto.CreateMeetingRequest;
+import com.flowboard.dto.MeetingDTO;
+import com.flowboard.dto.UserDTO;
+import com.flowboard.entity.*;
+import com.flowboard.repository.*;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class MeetingService {
+    private final MeetingRepository meetingRepository;
+    private final MeetingMemberRepository meetingMemberRepository;
+    private final ProjectRepository projectRepository;
+    private final ProjectMemberRepository projectMemberRepository;
+    private final UserRepository userRepository;
+
+    /**
+     * Creates a new meeting for a project.
+     * Initializes meeting_members with all project members.
+     * Optionally adds additional members.
+     */
+    public MeetingDTO createMeeting(CreateMeetingRequest request, User createdBy) {
+        // Validate project exists and user is a project member
+        Project project = projectRepository.findById(request.getProjectId())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
+
+        boolean isProjectMember = project.getOwner().getId().equals(createdBy.getId())
+            || projectMemberRepository.findMemberRole(project.getId(), createdBy.getId()).isPresent();
+
+        if (!isProjectMember) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User is not a member of this project");
+        }
+
+        // Create meeting
+        Meeting meeting = Meeting.builder()
+            .project(project)
+            .title(request.getTitle())
+            .description(request.getDescription())
+            .meetingDate(request.getMeetingDate())
+            .meetingTime(request.getMeetingTime())
+            .platform(request.getPlatform())
+            .meetingLink(request.getMeetingLink())
+            .status(Meeting.MeetingStatus.SCHEDULED)
+            .createdBy(createdBy)
+            .build();
+
+        meeting = meetingRepository.save(meeting);
+
+        // Add all project members as meeting members (owner + project_members entries)
+        List<UUID> projectMemberIds = projectMemberRepository.findProjectMemberRoles(project.getId())
+            .stream()
+            .map(row -> row[0] instanceof UUID ? (UUID) row[0] : UUID.fromString(row[0].toString()))
+            .collect(Collectors.toList());
+
+        if (!projectMemberIds.contains(project.getOwner().getId())) {
+            projectMemberIds.add(project.getOwner().getId());
+        }
+
+        List<User> projectMembers = userRepository.findAllById(projectMemberIds);
+        for (User member : projectMembers) {
+            MeetingMember meetingMember = MeetingMember.builder()
+                .meeting(meeting)
+                .user(member)
+                .build();
+            meetingMemberRepository.save(meetingMember);
+        }
+
+        // Add any additional members requested
+        if (request.getAdditionalMemberIds() != null) {
+            for (UUID memberId : request.getAdditionalMemberIds()) {
+                User user = userRepository.findById(memberId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + memberId));
+
+                // Check if already added (as project member)
+                if (!meetingMemberRepository.existsByMeetingIdAndUserId(meeting.getId(), memberId)) {
+                    MeetingMember meetingMember = MeetingMember.builder()
+                        .meeting(meeting)
+                        .user(user)
+                        .build();
+                    meetingMemberRepository.save(meetingMember);
+                }
+            }
+        }
+
+        return convertToDTO(meeting);
+    }
+
+    /**
+     * Get a meeting by ID
+     */
+    public MeetingDTO getMeeting(UUID meetingId) {
+        Meeting meeting = meetingRepository.findById(meetingId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Meeting not found"));
+        return convertToDTO(meeting);
+    }
+
+    /**
+     * Get all meetings for a project
+     */
+    public List<MeetingDTO> getMeetingsByProject(UUID projectId) {
+        // Verify project exists
+        if (!projectRepository.existsById(projectId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found");
+        }
+
+        List<Meeting> meetings = meetingRepository.findByProjectIdOrderByCreatedAtDesc(projectId);
+        return meetings.stream()
+            .map(this::convertToDTO)
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Update meeting transcript and mark as ended (idempotent)
+     * Allows being called multiple times on meetings in any status that can accept transcripts
+     */
+    public MeetingDTO endMeeting(UUID meetingId, String transcript) {
+        Meeting meeting = meetingRepository.findById(meetingId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Meeting not found"));
+
+        // Update transcript
+        if (transcript != null && !transcript.isEmpty()) {
+            meeting.setTranscript(transcript);
+        }
+
+        // Only transition to PENDING_APPROVAL if not already in a terminal state
+        if (meeting.getStatus() == Meeting.MeetingStatus.SCHEDULED ||
+            meeting.getStatus() == Meeting.MeetingStatus.IN_PROGRESS) {
+            meeting.setStatus(Meeting.MeetingStatus.PENDING_APPROVAL);
+        }
+        // If already PENDING_APPROVAL or beyond, just keep current status (idempotent)
+        
+        meeting = meetingRepository.save(meeting);
+        return convertToDTO(meeting);
+    }
+
+    /**
+     * Add a user to a meeting
+     */
+    public void addMeetingMember(UUID meetingId, UUID userId) {
+        Meeting meeting = meetingRepository.findById(meetingId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Meeting not found"));
+
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        if (meetingMemberRepository.existsByMeetingIdAndUserId(meetingId, userId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "User is already a meeting member");
+        }
+
+        MeetingMember meetingMember = MeetingMember.builder()
+            .meeting(meeting)
+            .user(user)
+            .build();
+        meetingMemberRepository.save(meetingMember);
+    }
+
+    /**
+     * Remove a user from a meeting
+     */
+    public void removeMeetingMember(UUID meetingId, UUID userId) {
+        if (!meetingMemberRepository.existsByMeetingIdAndUserId(meetingId, userId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Meeting member not found");
+        }
+
+        meetingMemberRepository.deleteByMeetingIdAndUserId(meetingId, userId);
+    }
+
+    /**
+     * Get all members of a meeting
+     */
+    public List<User> getMeetingMembers(UUID meetingId) {
+        if (!meetingRepository.existsById(meetingId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Meeting not found");
+        }
+
+        return meetingMemberRepository.findByMeetingId(meetingId)
+            .stream()
+            .map(MeetingMember::getUser)
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Convert Meeting entity to DTO
+     */
+    private MeetingDTO convertToDTO(Meeting meeting) {
+        List<User> members = meetingMemberRepository.findByMeetingId(meeting.getId())
+            .stream()
+            .map(MeetingMember::getUser)
+            .collect(Collectors.toList());
+
+        return MeetingDTO.builder()
+            .id(meeting.getId())
+            .projectId(meeting.getProject().getId())
+            .title(meeting.getTitle())
+            .description(meeting.getDescription())
+            .meetingDate(meeting.getMeetingDate())
+            .meetingTime(meeting.getMeetingTime())
+            .platform(meeting.getPlatform())
+            .meetingLink(meeting.getMeetingLink())
+            .status(meeting.getStatus().name())
+            .createdByName(meeting.getCreatedBy().getUsername())
+            .createdAt(meeting.getCreatedAt())
+            .members(members.stream()
+                .map(u -> UserDTO.builder()
+                    .id(u.getId())
+                    .username(u.getUsername())
+                    .email(u.getEmail())
+                    .build())
+                .collect(Collectors.toList()))
+            .build();
+    }
+}

@@ -1,7 +1,5 @@
-import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
-import { useMeetingStore } from '../store/meetingStore';
-import { useProjectStore } from '../store/projectStore';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
@@ -10,14 +8,23 @@ import { Badge } from '../components/ui/badge';
 import { Checkbox } from '../components/ui/checkbox';
 import { ArrowLeft, Calendar, Clock, Users, FileText, Link as LinkIcon, Video, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiService, type ProjectResponse } from '../services/api';
+
+interface ProjectMember {
+  id: string;
+  name: string;
+  email: string;
+}
 
 export function CreateMeeting() {
   const navigate = useNavigate();
-  const { projectId } = useParams<{ projectId?: string }>();
-  const addMeeting = useMeetingStore((s) => s.addMeeting);
-  const teamMembers = useProjectStore((s) => s.teamMembers);
-  const project = useProjectStore((s) => s.projects.find((p) => p.id === projectId));
-  
+
+  const [projects, setProjects] = useState<ProjectResponse[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [loadingProjects, setLoadingProjects] = useState(true);
+
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
@@ -25,6 +32,61 @@ export function CreateMeeting() {
   const [platform, setPlatform] = useState('');
   const [link, setLink] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+
+  // Load projects on mount
+  useEffect(() => {
+    const loadProjects = async () => {
+      try {
+        setLoadingProjects(true);
+        const userProjects = await apiService.getUserProjects();
+        setProjects(userProjects);
+        if (userProjects.length > 0) {
+          setSelectedProjectId(userProjects[0].id);
+        }
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Failed to load projects');
+      } finally {
+        setLoadingProjects(false);
+      }
+    };
+
+    void loadProjects();
+  }, []);
+
+  // Load members when project is selected
+  useEffect(() => {
+    if (!selectedProjectId) {
+      setProjectMembers([]);
+      setSelectedMembers([]);
+      return;
+    }
+
+    const loadMembers = async () => {
+      try {
+        setLoadingMembers(true);
+        const members = await apiService.getProjectMembers(selectedProjectId);
+        
+        // Map members to the expected structure
+        const mappedMembers: ProjectMember[] = members.map((m: any) => ({
+          id: m.id || m.userId || '',
+          name: m.name || m.fullName || m.username || '',
+          email: m.email || '',
+        }));
+        
+        setProjectMembers(mappedMembers);
+        // Auto-select all project members
+        setSelectedMembers(mappedMembers.map((m) => m.name));
+      } catch (error) {
+        toast.error('Failed to load project members');
+        setProjectMembers([]);
+        setSelectedMembers([]);
+      } finally {
+        setLoadingMembers(false);
+      }
+    };
+
+    void loadMembers();
+  }, [selectedProjectId]);
 
   const handleToggleMember = (memberName: string) => {
     setSelectedMembers((prev) =>
@@ -34,44 +96,32 @@ export function CreateMeeting() {
     );
   };
 
-  const handleCreateMeeting = () => {
+  const handleCreateMeeting = async () => {
+    if (!selectedProjectId) {
+      toast.error('Please select a project');
+      return;
+    }
+
     if (!title.trim() || !date || !time || selectedMembers.length === 0) {
       toast.error('Please fill in all required fields and select at least one team member');
       return;
     }
 
-    const newMeeting = {
-      id: `m-${Date.now()}`,
-      projectId: projectId || '', // Use projectId from route or empty string for global meetings
-      title: title.trim(),
-      date,
-      time,
-      members: selectedMembers,
-      agenda: agenda.trim(),
-      platform: platform.trim(),
-      link: link.trim(),
-      status: 'scheduled' as const,
-      actionItems: [],
-      decisions: [],
-      changes: [],
-      otherNotes: [],
-      approvals: selectedMembers.map((member, idx) => ({
-        userId: `u${idx + 1}`,
-        userName: member,
-        status: 'pending' as const,
-      })),
-      totalApprovers: selectedMembers.length,
-      userHasApproved: false,
-    };
+    try {
+      await apiService.createMeeting({
+        projectId: selectedProjectId,
+        title: title.trim(),
+        description: agenda.trim(),
+        meetingDate: date,
+        meetingTime: `${time}:00`,
+        platform: platform.trim() || undefined,
+        meetingLink: link.trim() || undefined,
+      });
 
-    addMeeting(newMeeting);
-    toast.success('Meeting created successfully');
-    
-    // Navigate back to project meetings tab or global meetings page
-    if (projectId) {
-      navigate(`/project/${projectId}?tab=meetings`);
-    } else {
-      navigate('/meetings');
+      toast.success('Meeting created successfully');
+      navigate(`/project/${selectedProjectId}?tab=meetings`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to create meeting');
     }
   };
 
@@ -83,21 +133,55 @@ export function CreateMeeting() {
           <Button
             variant="ghost"
             className="mb-4 -ml-2"
-            onClick={() => projectId ? navigate(`/project/${projectId}`) : navigate('/meetings')}
+            onClick={() => navigate('/meetings')}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            {projectId && project ? `Back to ${project.name}` : 'Back to Meetings'}
+            Back to Meetings
           </Button>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Create New Meeting</h1>
-          <p className="text-gray-600">
-            {projectId && project 
-              ? `Set up a new meeting for ${project.name}` 
-              : 'Set up a new meeting with your team'}
-          </p>
+          <p className="text-gray-600">Set up a new meeting and automatically add project members</p>
         </div>
 
         {/* Form */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 md:p-8 space-y-6">
+          {/* Project Selection */}
+          <div>
+            <Label htmlFor="project" className="mb-2">
+              Select Project <span className="text-red-500">*</span>
+            </Label>
+            {loadingProjects ? (
+              <div className="h-10 bg-gray-100 rounded-md animate-pulse" />
+            ) : (
+              <select
+                id="project"
+                value={selectedProjectId}
+                onChange={(e) => setSelectedProjectId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">-- Select a project --</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            {projects.length === 0 && !loadingProjects && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-2">
+                <p className="text-sm text-yellow-800">
+                  No projects found. Please{' '}
+                  <button
+                    onClick={() => navigate('/dashboard')}
+                    className="font-medium underline hover:text-yellow-900"
+                  >
+                    create a project
+                  </button>{' '}
+                  first.
+                </p>
+              </div>
+            )}
+          </div>
+
           {/* Title */}
           <div>
             <Label htmlFor="title" className="mb-2">
@@ -145,22 +229,21 @@ export function CreateMeeting() {
               <Users className="w-4 h-4 inline mr-1" />
               Team Members <span className="text-red-500">*</span>
             </Label>
-            {teamMembers.length === 0 ? (
+            {loadingMembers ? (
+              <div className="space-y-2 bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <div className="h-6 bg-gray-200 rounded animate-pulse" />
+                <div className="h-6 bg-gray-200 rounded animate-pulse" />
+                <div className="h-6 bg-gray-200 rounded animate-pulse" />
+              </div>
+            ) : projectMembers.length === 0 ? (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <p className="text-sm text-yellow-800">
-                  No team members found. Please add team members from the{' '}
-                  <button
-                    onClick={() => navigate('/team')}
-                    className="font-medium underline hover:text-yellow-900"
-                  >
-                    Team page
-                  </button>{' '}
-                  first.
+                  No team members found for this project. Please add members to the project first.
                 </p>
               </div>
             ) : (
               <div className="space-y-2 bg-gray-50 border border-gray-200 rounded-lg p-4">
-                {teamMembers.map((member) => (
+                {projectMembers.map((member) => (
                   <div key={member.id} className="flex items-center gap-3">
                     <Checkbox
                       id={`member-${member.id}`}
@@ -250,7 +333,7 @@ export function CreateMeeting() {
             <Button
               onClick={handleCreateMeeting}
               className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-              disabled={teamMembers.length === 0}
+              disabled={!selectedProjectId || projectMembers.length === 0 || selectedMembers.length === 0 || loadingProjects || loadingMembers}
             >
               Create Meeting
             </Button>

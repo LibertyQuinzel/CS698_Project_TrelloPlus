@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { useChangeStore, type ChangeRequest } from '../store/changeStore';
-import { useMeetingStore } from '../store/meetingStore';
+import { type ChangeRequest } from '../store/changeStore';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { ChangeDetailModal } from '../components/ChangeDetailModal';
 import { ArrowLeft } from 'lucide-react';
+import { useProjectStore } from '../store/projectStore';
+import { apiService, mapProjectResponseToProject, type MeetingResponse } from '../services/api';
+import { toast } from 'sonner';
 
 const changeTypeConfig: Record<string, { label: string; color: string }> = {
   MOVE_CARD: { label: 'Move Card', color: 'bg-blue-50 text-blue-700 border-blue-200' },
@@ -17,11 +19,157 @@ const changeTypeConfig: Record<string, { label: string; color: string }> = {
 export function MeetingChanges() {
   const { meetingId } = useParams<{ meetingId: string }>();
   const navigate = useNavigate();
-  const meeting = useMeetingStore((s) => s.meetings.find((m) => m.id === meetingId));
-  const allChanges = useChangeStore((s) => s.changes);
+  const [meeting, setMeeting] = useState<MeetingResponse | null>(null);
+  const [changes, setChanges] = useState<ChangeRequest[]>([]);
   const [selectedChange, setSelectedChange] = useState<ChangeRequest | null>(null);
+  const [applyingChangeId, setApplyingChangeId] = useState<string | null>(null);
+  const setProjects = useProjectStore((s) => s.setProjects);
 
-  const changes = allChanges.filter((c) => c.meetingId === meetingId);
+  const refreshMeetingChanges = async (activeMeetingId: string) => {
+    const [meetingData, changeData] = await Promise.all([
+      apiService.getMeeting(activeMeetingId),
+      apiService.listChanges({ meetingId: activeMeetingId }),
+    ]);
+
+    setMeeting(meetingData);
+    setChanges(
+      changeData.map((c) => {
+        let before: any;
+        let after: any;
+
+        try {
+          before = c.beforeState ? JSON.parse(c.beforeState) : undefined;
+        } catch {
+          before = undefined;
+        }
+
+        try {
+          after = c.afterState ? JSON.parse(c.afterState) : undefined;
+        } catch {
+          after = undefined;
+        }
+
+        return {
+          id: c.id,
+          meetingId: c.meetingId,
+          meetingTitle: meetingData.title,
+          type: c.changeType as ChangeRequest['type'],
+          status: c.status as ChangeRequest['status'],
+          requestedBy: 'system',
+          requestedAt: c.createdAt,
+          projectId: meetingData.projectId,
+          before,
+          after,
+          affectedCards: [],
+          affectedStages: [],
+          affectedMembers: [],
+          riskLevel: 'LOW',
+          approvals: [],
+          requiredApprovals: 0,
+          rollbackAvailable: false,
+        };
+      })
+    );
+  };
+
+  const refreshProjectBoardState = async (projectId: string) => {
+    const [allProjects, refreshedProject] = await Promise.all([
+      apiService.getUserProjects(),
+      apiService.getProject(projectId),
+    ]);
+
+    const mergedProjects = allProjects.map((project) =>
+      project.id === projectId ? refreshedProject : project
+    );
+
+    setProjects(mergedProjects.map(mapProjectResponseToProject));
+  };
+
+  useEffect(() => {
+    if (!meetingId) return;
+
+    let isMounted = true;
+
+    const loadData = async () => {
+      try {
+        const [meetingData, changeData] = await Promise.all([
+          apiService.getMeeting(meetingId),
+          apiService.listChanges({ meetingId }),
+        ]);
+
+        if (!isMounted) return;
+
+        setMeeting(meetingData);
+        setChanges(
+          changeData.map((c) => {
+            let before: any;
+            let after: any;
+
+            try {
+              before = c.beforeState ? JSON.parse(c.beforeState) : undefined;
+            } catch {
+              before = undefined;
+            }
+
+            try {
+              after = c.afterState ? JSON.parse(c.afterState) : undefined;
+            } catch {
+              after = undefined;
+            }
+
+            return {
+              id: c.id,
+              meetingId: c.meetingId,
+              meetingTitle: meetingData.title,
+              type: c.changeType as ChangeRequest['type'],
+              status: c.status as ChangeRequest['status'],
+              requestedBy: 'system',
+              requestedAt: c.createdAt,
+              projectId: meetingData.projectId,
+              before,
+              after,
+              affectedCards: [],
+              affectedStages: [],
+              affectedMembers: [],
+              riskLevel: 'LOW',
+              approvals: [],
+              requiredApprovals: 0,
+              rollbackAvailable: false,
+            };
+          })
+        );
+      } catch (error) {
+        if (isMounted) {
+          toast.error(error instanceof Error ? error.message : 'Failed to load meeting changes');
+        }
+      }
+    };
+
+    void loadData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [meetingId]);
+
+  const handleApplyToBoard = async (changeId: string) => {
+    if (!meetingId || !meeting?.projectId) return;
+
+    setApplyingChangeId(changeId);
+    try {
+      const result = await apiService.applyChange(changeId);
+      await Promise.all([
+        refreshMeetingChanges(meetingId),
+        refreshProjectBoardState(meeting.projectId),
+      ]);
+
+      toast.success(result.message || 'Change applied to board');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to apply change to board');
+    } finally {
+      setApplyingChangeId(null);
+    }
+  };
 
   const getChangeDescription = (change: ChangeRequest) => {
     const title = (change.after as any)?.title || (change.before as any)?.title || 'Untitled';
@@ -97,11 +245,30 @@ export function MeetingChanges() {
                         <Badge variant="outline" className={typeConfig.color}>
                           {typeConfig.label}
                         </Badge>
+                        {change.status === 'APPLIED' && (
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                            Applied
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-gray-900">
                         {getChangeDescription(change)}
                       </p>
                     </div>
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleApplyToBoard(change.id);
+                      }}
+                      disabled={change.status === 'APPLIED' || applyingChangeId === change.id}
+                    >
+                      {change.status === 'APPLIED'
+                        ? 'Applied'
+                        : applyingChangeId === change.id
+                        ? 'Applying...'
+                        : 'Apply to Board'}
+                    </Button>
                   </div>
                 </div>
               );

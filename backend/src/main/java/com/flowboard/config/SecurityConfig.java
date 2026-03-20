@@ -19,6 +19,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import jakarta.servlet.DispatcherType;
 import java.util.Arrays;
 
 @Configuration
@@ -57,6 +58,8 @@ public class SecurityConfig {
                 .frameOptions(frame -> frame.sameOrigin())
             )
             .authorizeHttpRequests(authz -> authz
+                .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+                .requestMatchers("/error", "/api/v1/error").permitAll()
                 .requestMatchers("/auth/**", "/api/v1/auth/**").permitAll()
                 .anyRequest().authenticated()
             )

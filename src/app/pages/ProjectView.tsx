@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { useProjectStore } from '../store/projectStore';
-import { useMeetingStore } from '../store/meetingStore';
 import { useChangeStore, type ChangeRequest } from '../store/changeStore';
+import { useMeetingStore, type Meeting } from '../store/meetingStore';
 import { KanbanBoard } from './KanbanBoard';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { ChangeDetailModal } from '../components/ChangeDetailModal';
 import { Calendar, Clock, Plus, FileText, ListChecks, CheckCircle, BookOpen } from 'lucide-react';
-import { apiService, mapProjectResponseToProject } from '../services/api';
+import { apiService, mapProjectResponseToProject, type MeetingResponse, type ChangeResponse } from '../services/api';
 import { toast } from 'sonner';
 
 type Tab = 'board' | 'meetings' | 'decisions';
@@ -22,6 +22,7 @@ export function ProjectView() {
   const [selectedChange, setSelectedChange] = useState<ChangeRequest | null>(null);
   const [isLoadingProject, setIsLoadingProject] = useState(false);
   const [projectLoadFailed, setProjectLoadFailed] = useState(false);
+  const [projectMeetings, setProjectMeetings] = useState<MeetingResponse[]>([]);
   const attemptedProjectLoadRef = useRef<string | null>(null);
   
   // Update active tab when URL changes
@@ -33,8 +34,183 @@ export function ProjectView() {
   
   const project = useProjectStore((s) => s.projects.find((p) => p.id === projectId));
   const setProjects = useProjectStore((s) => s.setProjects);
-  const allMeetings = useMeetingStore((s) => s.meetings);
+  const updateProject = useProjectStore((s) => s.updateProject);
+  const setMeetingsStore = useMeetingStore((s) => s.setMeetings);
+  const setChangesStore = useChangeStore((s) => s.setChanges);
   const allChanges = useChangeStore((s) => s.changes);
+
+  const loadProjectDecisions = async (projectMeetingsList: MeetingResponse[]) => {
+    if (!projectId || !project) {
+      console.log('[Decisions] Skipping - no projectId or project');
+      return;
+    }
+
+    // Filter to only APPROVED meetings (not SCHEDULED, IN_PROGRESS, PENDING_APPROVAL, or REJECTED)
+    const approvedMeetings = projectMeetingsList.filter(
+      (meeting) => meeting.status === 'APPROVED'
+    );
+    console.log(
+      `[Decisions] Found ${approvedMeetings.length} approved meetings (total: ${projectMeetingsList.length})`,
+      approvedMeetings.map((m) => ({ id: m.id, title: m.title, status: m.status }))
+    );
+
+    if (approvedMeetings.length === 0) {
+      console.log('[Decisions] No approved meetings - setting empty decisions');
+      updateProject(projectId, { decisions: [] });
+      return;
+    }
+
+    // Fetch summaries for all approved meetings and extract decisions
+    const summaryResults = await Promise.all(
+      approvedMeetings.map(async (meeting) => {
+        try {
+          console.log(`[Decisions] Fetching summary for meeting: ${meeting.title} (${meeting.id})`);
+          const summary = await apiService.getSummaryByMeeting(meeting.id);
+          console.log(
+            `[Decisions] Got summary with ${summary.decisions?.length ?? 0} decisions, ` +
+            `${summary.actionItems?.length ?? 0} action items`
+          );
+          return { meeting, summary };
+        } catch (error) {
+          console.error(`[Decisions] Error fetching summary for meeting ${meeting.id}:`, error);
+          return null;
+        }
+      })
+    );
+
+    // Extract decisions from summaries
+    const decisions = summaryResults
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+      .flatMap(({ meeting, summary }) => {
+        const decisionList = summary.decisions || [];
+        console.log(`[Decisions] Extracting ${decisionList.length} decisions from meeting: ${meeting.title}`);
+        return decisionList.map((decision) => ({
+          id: decision.id,
+          description: decision.description,
+          meetingId: meeting.id,
+          meetingTitle: meeting.title,
+          sourceContext: decision.sourceContext || '',
+          approvedAt: meeting.createdAt,
+          approvedBy: 'Meeting approval consensus',
+        }));
+      });
+
+    console.log(`[Decisions] Total extracted: ${decisions.length} decisions, updating project store`);
+    updateProject(projectId, { decisions });
+  };
+
+  const normalizeMeetingStatus = (status: string): Meeting['status'] => {
+    switch (status) {
+      case 'SCHEDULED':
+        return 'scheduled';
+      case 'IN_PROGRESS':
+        return 'in-progress';
+      case 'PENDING_APPROVAL':
+        return 'pending-approval';
+      case 'APPROVED':
+        return 'approved';
+      case 'REJECTED':
+        return 'rejected';
+      default:
+        return 'scheduled';
+    }
+  };
+
+  const mapMeetingToStore = (meeting: MeetingResponse): Meeting => ({
+    id: meeting.id,
+    projectId: meeting.projectId,
+    title: meeting.title,
+    date: meeting.meetingDate,
+    time: (meeting.meetingTime || '').slice(0, 5),
+    members: (meeting.members || []).map((m) => m.username || m.email),
+    agenda: meeting.description || '',
+    platform: meeting.platform,
+    link: meeting.meetingLink,
+    transcript: '',
+    status: normalizeMeetingStatus(meeting.status),
+    actionItems: [],
+    decisions: [],
+    changes: [],
+    otherNotes: [],
+    approvals: [],
+    totalApprovers: 0,
+    userHasApproved: false,
+  });
+
+  const mapChangeToStore = (change: ChangeResponse): ChangeRequest => ({
+    id: change.id,
+    meetingId: change.meetingId,
+    meetingTitle: '',
+    type: change.changeType as ChangeRequest['type'],
+    status: change.status as ChangeRequest['status'],
+    requestedBy: 'system',
+    requestedAt: change.createdAt,
+    projectId: projectId || '',
+    before: undefined,
+    after: undefined,
+    affectedCards: [],
+    affectedStages: [],
+    affectedMembers: [],
+    riskLevel: 'LOW',
+    approvals: [],
+    requiredApprovals: 0,
+    rollbackAvailable: false,
+  });
+
+  useEffect(() => {
+    if (!projectId) {
+      setProjectMeetings([]);
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadProjectMeetings = async () => {
+      try {
+        const meetings = await apiService.getMeetingsByProject(projectId);
+        const changes = await apiService.listChanges({ projectId });
+        if (isMounted) {
+          setProjectMeetings(meetings);
+          setMeetingsStore(meetings.map(mapMeetingToStore));
+          setChangesStore(changes.map(mapChangeToStore));
+        }
+      } catch (error) {
+        if (isMounted) {
+          toast.error(error instanceof Error ? error.message : 'Failed to load project meetings');
+        }
+      }
+    };
+
+    void loadProjectMeetings();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!projectId || !project) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadDecisions = async () => {
+      try {
+        if (!isMounted) return;
+        console.log('[Decisions] Starting decision load effect');
+        await loadProjectDecisions(projectMeetings);
+      } catch (error) {
+        console.error('[Decisions] Error in loadDecisions:', error);
+      }
+    };
+
+    void loadDecisions();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [projectId, project, projectMeetings]);
 
   useEffect(() => {
     attemptedProjectLoadRef.current = null;
@@ -117,13 +293,27 @@ export function ProjectView() {
     );
   }
 
-  // Filter meetings for this project
-  const projectMeetings = allMeetings.filter((m) => m.projectId === projectId);
+  const normalizeMeetingStatusLabel = (status: string) => {
+    switch (status) {
+      case 'SCHEDULED':
+        return 'scheduled';
+      case 'IN_PROGRESS':
+        return 'in-progress';
+      case 'PENDING_APPROVAL':
+        return 'pending-approval';
+      case 'APPROVED':
+        return 'approved';
+      case 'REJECTED':
+        return 'rejected';
+      default:
+        return 'scheduled';
+    }
+  };
   
   // Sort meetings by date (most recent first)
   const sortedMeetings = [...projectMeetings].sort((a, b) => {
-    const dateA = new Date(a.date + 'T' + a.time);
-    const dateB = new Date(b.date + 'T' + b.time);
+    const dateA = new Date(`${a.meetingDate}T${a.meetingTime}`);
+    const dateB = new Date(`${b.meetingDate}T${b.meetingTime}`);
     return dateB.getTime() - dateA.getTime();
   });
 
@@ -227,11 +417,45 @@ export function ProjectView() {
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 mb-3">
                             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                             <h3 className="text-lg font-semibold text-gray-900">
                               {decision.description}
                             </h3>
+                          </div>
+                          
+                          {/* Metadata */}
+                          <div className="space-y-2 text-sm">
+                            {decision.sourceContext && (
+                              <div className="text-gray-700 bg-gray-50 rounded p-3">
+                                <p className="text-gray-600 font-medium mb-1">Context:</p>
+                                <p>{decision.sourceContext}</p>
+                              </div>
+                            )}
+                            
+                            <div className="flex flex-col gap-2">
+                              <div className="flex items-center gap-2 text-gray-600">
+                                <Calendar className="w-4 h-4" />
+                                <span>
+                                  From meeting: <span className="font-medium text-gray-900">{decision.meetingTitle}</span>
+                                </span>
+                              </div>
+                              
+                              {decision.approvedAt && (
+                                <div className="flex items-center gap-2 text-gray-600">
+                                  <Clock className="w-4 h-4" />
+                                  <span>
+                                    Approved: <span className="font-medium text-gray-900">
+                                      {new Date(decision.approvedAt).toLocaleDateString([], { 
+                                        month: 'short', 
+                                        day: 'numeric', 
+                                        year: 'numeric' 
+                                      })}
+                                    </span>
+                                  </span>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                         
@@ -259,7 +483,7 @@ export function ProjectView() {
                   <p className="text-gray-600">Manage meeting summaries and approvals for this project</p>
                 </div>
                 <Button 
-                  onClick={() => navigate(`/project/${projectId}/create-meeting`)}
+                    onClick={() => navigate('/create-meeting')}
                   className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                 >
                   <Plus className="w-4 h-4 mr-2" />
@@ -279,7 +503,8 @@ export function ProjectView() {
               ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                   {sortedMeetings.map((meeting) => {
-                    const statusInfo = statusConfig[meeting.status];
+                    const normalizedStatus = normalizeMeetingStatusLabel(meeting.status);
+                    const statusInfo = statusConfig[normalizedStatus];
 
                     return (
                       <div
@@ -290,7 +515,7 @@ export function ProjectView() {
                         <div className="mb-4">
                           <div className="flex items-start justify-between mb-3">
                             <h3 
-                              onClick={() => navigate(meeting.status === 'scheduled' ? `/meeting-transcript/${meeting.id}` : `/meetings/${meeting.id}`)}
+                              onClick={() => navigate(normalizedStatus === 'scheduled' ? `/meeting-transcript/${meeting.id}` : `/meetings/${meeting.id}`)}
                               className="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors line-clamp-2 cursor-pointer"
                             >
                               {meeting.title}
@@ -307,7 +532,7 @@ export function ProjectView() {
                           <div className="flex items-center gap-2 text-sm text-gray-600">
                             <Calendar className="w-4 h-4 flex-shrink-0" />
                             <span>
-                              {new Date(meeting.date).toLocaleDateString('en-US', {
+                              {new Date(meeting.meetingDate).toLocaleDateString('en-US', {
                                 month: 'short',
                                 day: 'numeric',
                                 year: 'numeric',
@@ -317,7 +542,7 @@ export function ProjectView() {
                           
                           <div className="flex items-center gap-2 text-sm text-gray-600">
                             <Clock className="w-4 h-4 flex-shrink-0" />
-                            <span>{meeting.time}</span>
+                            <span>{meeting.meetingTime?.slice(0, 5)}</span>
                           </div>
                         </div>
 
@@ -326,7 +551,7 @@ export function ProjectView() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => navigate(meeting.status === 'scheduled' ? `/meeting-transcript/${meeting.id}` : `/meetings/${meeting.id}`)}
+                            onClick={() => navigate(normalizedStatus === 'scheduled' ? `/meeting-transcript/${meeting.id}` : `/meetings/${meeting.id}`)}
                             className="flex-1"
                           >
                             <FileText className="w-4 h-4 mr-2" />

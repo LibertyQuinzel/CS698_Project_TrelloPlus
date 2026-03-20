@@ -1,20 +1,42 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { useMeetingStore } from '../store/meetingStore';
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
 import { ArrowLeft, Sparkles, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiService, type MeetingResponse } from '../services/api';
 
 export function MeetingTranscript() {
   const { meetingId } = useParams<{ meetingId: string }>();
   const navigate = useNavigate();
-  const meeting = useMeetingStore((s) => s.meetings.find((m) => m.id === meetingId));
-  const updateMeeting = useMeetingStore((s) => s.updateMeeting);
-  const generateSummary = useMeetingStore((s) => s.generateSummary);
-
-  const [transcript, setTranscript] = useState(meeting?.transcript || '');
+  const [meeting, setMeeting] = useState<MeetingResponse | null>(null);
+  const [transcript, setTranscript] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+
+  useEffect(() => {
+    if (!meetingId) return;
+
+    let isMounted = true;
+
+    const loadMeeting = async () => {
+      try {
+        const meetingData = await apiService.getMeeting(meetingId);
+        if (isMounted) {
+          setMeeting(meetingData);
+        }
+      } catch (error) {
+        if (isMounted) {
+          toast.error(error instanceof Error ? error.message : 'Failed to load meeting');
+        }
+      }
+    };
+
+    void loadMeeting();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [meetingId]);
 
   if (!meeting) {
     return (
@@ -26,7 +48,7 @@ export function MeetingTranscript() {
   }
 
   const handleBack = () => {
-    if (meeting.projectId) {
+    if (meeting?.projectId) {
       navigate(`/project/${meeting.projectId}`);
     } else {
       navigate('/meetings');
@@ -34,28 +56,24 @@ export function MeetingTranscript() {
   };
 
   const handleGenerateSummary = async () => {
-    if (!transcript.trim()) {
-      toast.error('Please paste a meeting transcript first');
+    if (!meetingId) {
       return;
     }
 
     setIsGenerating(true);
-    
-    // Save transcript
-    if (meetingId) {
-      updateMeeting(meetingId, { transcript: transcript.trim() });
+
+    try {
+      if (transcript.trim()) {
+        await apiService.endMeeting(meetingId, transcript.trim());
+      }
+      await apiService.generateSummary(meetingId);
+      toast.success('Summary generated successfully!');
+      navigate(`/meetings/${meetingId}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to generate summary');
+    } finally {
+      setIsGenerating(false);
     }
-
-    // Simulate AI processing
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    if (meetingId) {
-      generateSummary(meetingId);
-    }
-
-    setIsGenerating(false);
-    toast.success('Summary generated successfully!');
-    navigate(`/meetings/${meetingId}`);
   };
 
   return (
@@ -69,7 +87,7 @@ export function MeetingTranscript() {
             onClick={handleBack}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            {meeting.projectId ? 'Back to Project' : 'Back to Meetings'}
+            {meeting?.projectId ? 'Back to Project' : 'Back to Meetings'}
           </Button>
         </div>
 
@@ -77,12 +95,12 @@ export function MeetingTranscript() {
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">{meeting.title}</h1>
           <p className="text-gray-600">
-            {new Date(meeting.date).toLocaleDateString('en-US', {
+            {new Date(meeting.meetingDate).toLocaleDateString('en-US', {
               month: 'long',
               day: 'numeric',
               year: 'numeric',
             })}{' '}
-            at {meeting.time}
+            at {(meeting.meetingTime || '').slice(0, 5)}
           </p>
         </div>
 
@@ -114,7 +132,7 @@ export function MeetingTranscript() {
             <Button
               onClick={handleGenerateSummary}
               className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-              disabled={isGenerating || !transcript.trim()}
+              disabled={isGenerating}
             >
               {isGenerating ? (
                 <>

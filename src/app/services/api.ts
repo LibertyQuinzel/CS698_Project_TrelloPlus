@@ -33,7 +33,7 @@ interface CreateProjectRequest {
   generateTasks?: boolean;
 }
 
-interface ProjectResponse {
+export interface ProjectResponse {
   id: string;
   name: string;
   description: string;
@@ -95,6 +95,102 @@ interface StageRequest {
 interface UpdateProjectRequest {
   name: string;
   description: string;
+}
+
+export interface MeetingUserResponse {
+  id: string;
+  username: string;
+  email: string;
+}
+
+export interface MeetingResponse {
+  id: string;
+  projectId: string;
+  title: string;
+  description?: string;
+  meetingDate: string;
+  meetingTime: string;
+  platform?: string;
+  meetingLink?: string;
+  status: string;
+  createdByName?: string;
+  createdAt: string;
+  members: MeetingUserResponse[];
+}
+
+export interface CreateMeetingApiRequest {
+  projectId: string;
+  title: string;
+  description?: string;
+  meetingDate: string;
+  meetingTime: string;
+  platform?: string;
+  meetingLink?: string;
+}
+
+export interface EndMeetingApiRequest {
+  meetingId: string;
+  transcript: string;
+}
+
+export interface SummaryItemDTO {
+  id: string;
+  description: string;
+  sourceContext?: string;
+  approvalStatus?: 'PENDING' | 'APPROVED';
+  status?: string;
+}
+
+export interface MeetingSummaryResponse {
+  id: string;
+  meetingId: string;
+  status: string;
+  aiGeneratedContent?: string;
+  generatedAt?: string;
+  approvedAt?: string;
+  actionItems: SummaryItemDTO[];
+  decisions: SummaryItemDTO[];
+  changes: Array<{
+    id: string;
+    meetingId: string;
+    changeType: string;
+    beforeState?: string;
+    afterState?: string;
+    status: string;
+    createdAt: string;
+  }>;
+}
+
+export interface ApprovalStatusResponse {
+  meetingId: string;
+  requiredApprovals: number;
+  currentApprovedCount: number;
+  currentRejectedCount: number;
+  totalApproversNeeded: number;
+  responses: Array<{
+    userId: string;
+    userName: string;
+    response: string;
+    comments?: string;
+    respondedAt?: string;
+  }>;
+}
+
+export interface ChangeResponse {
+  id: string;
+  meetingId: string;
+  changeType: string;
+  beforeState?: string;
+  afterState?: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface ChangeApplyResultResponse {
+  changeId: string;
+  status: string;
+  applied: boolean;
+  message: string;
 }
 
 const getAuthToken = (): string | null => {
@@ -495,6 +591,168 @@ export const apiService = {
 
     if (!response.ok) {
       throw new Error(await parseApiErrorMessage(response, 'Failed to update team member role'));
+    }
+
+    return response.json();
+  },
+
+  // Meeting endpoints
+  async getMeetingsByProject(projectId: string): Promise<MeetingResponse[]> {
+    const response = await requestWithTimeout(`${API_BASE_URL}/meetings/project/${projectId}`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(await parseApiErrorMessage(response, 'Failed to fetch meetings'));
+    }
+
+    return response.json();
+  },
+
+  async createMeeting(request: CreateMeetingApiRequest): Promise<MeetingResponse> {
+    const response = await requestWithTimeout(`${API_BASE_URL}/meetings`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      throw new Error(await parseApiErrorMessage(response, 'Failed to create meeting'));
+    }
+
+    return response.json();
+  },
+
+  async getMeeting(meetingId: string): Promise<MeetingResponse> {
+    const response = await requestWithTimeout(`${API_BASE_URL}/meetings/${meetingId}`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(await parseApiErrorMessage(response, 'Failed to fetch meeting'));
+    }
+
+    return response.json();
+  },
+
+  async endMeeting(meetingId: string, transcript: string): Promise<MeetingResponse> {
+    const payload: EndMeetingApiRequest = { meetingId, transcript };
+    const response = await requestWithTimeout(`${API_BASE_URL}/meetings/${meetingId}/end`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error(await parseApiErrorMessage(response, 'Failed to submit transcript'));
+    }
+
+    return response.json();
+  },
+
+  async generateSummary(meetingId: string): Promise<MeetingSummaryResponse> {
+    const response = await requestWithTimeout(`${API_BASE_URL}/summaries`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ meetingId }),
+    });
+
+    if (!response.ok) {
+      throw new Error(await parseApiErrorMessage(response, 'Failed to generate summary'));
+    }
+
+    return response.json();
+  },
+
+  async getSummaryByMeeting(meetingId: string): Promise<MeetingSummaryResponse> {
+    const response = await requestWithTimeout(`${API_BASE_URL}/summaries/meeting/${meetingId}`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(await parseApiErrorMessage(response, 'Failed to fetch summary'));
+    }
+
+    return response.json();
+  },
+
+  async getApprovalStatus(meetingId: string): Promise<ApprovalStatusResponse> {
+    const response = await requestWithTimeout(`${API_BASE_URL}/approvals/summary/${meetingId}`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(await parseApiErrorMessage(response, 'Failed to fetch approval status'));
+    }
+
+    return response.json();
+  },
+
+  async submitSummaryApproval(meetingId: string, decision: 'APPROVED' | 'REJECTED', comments?: string): Promise<void> {
+    const response = await requestWithTimeout(`${API_BASE_URL}/approvals/summary/${meetingId}`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ meetingId, response: decision, comments }),
+    });
+
+    if (!response.ok) {
+      throw new Error(await parseApiErrorMessage(response, 'Failed to submit approval'));
+    }
+  },
+
+  async approveActionItem(itemId: string): Promise<void> {
+    const response = await requestWithTimeout(`${API_BASE_URL}/approvals/items/action-items/${itemId}/approve`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(await parseApiErrorMessage(response, 'Failed to approve action item'));
+    }
+  },
+
+  async approveDecisionItem(itemId: string): Promise<void> {
+    const response = await requestWithTimeout(`${API_BASE_URL}/approvals/items/decisions/${itemId}/approve`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(await parseApiErrorMessage(response, 'Failed to approve decision item'));
+    }
+  },
+
+  async listChanges(params?: { meetingId?: string; projectId?: string; status?: string }): Promise<ChangeResponse[]> {
+    const searchParams = new URLSearchParams();
+    if (params?.meetingId) searchParams.set('meetingId', params.meetingId);
+    if (params?.projectId) searchParams.set('projectId', params.projectId);
+    if (params?.status) searchParams.set('status', params.status);
+
+    const query = searchParams.toString();
+    const response = await requestWithTimeout(`${API_BASE_URL}/changes${query ? `?${query}` : ''}`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(await parseApiErrorMessage(response, 'Failed to fetch changes'));
+    }
+
+    return response.json();
+  },
+
+  async applyChange(changeId: string): Promise<ChangeApplyResultResponse> {
+    const response = await requestWithTimeout(`${API_BASE_URL}/changes/${changeId}/apply`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(await parseApiErrorMessage(response, 'Failed to apply change to board'));
     }
 
     return response.json();
