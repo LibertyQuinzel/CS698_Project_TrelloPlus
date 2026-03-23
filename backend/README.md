@@ -14,9 +14,9 @@
 ```bash
 docker run --name flowboard-postgres \
   -e POSTGRES_USER=flowboard \
-  -e POSTGRES_PASSWORD=flowboard_password \
+  -e POSTGRES_PASSWORD=change-me \
   -e POSTGRES_DB=flowboard \
-  -p 5432:5432 \
+  -p 127.0.0.1:5432:5432 \
   -d postgres:16
 ```
 
@@ -26,7 +26,7 @@ docker run --name flowboard-postgres \
 # Create database and user
 createdb flowboard
 createuser flowboard
-psql flowboard -c "ALTER USER flowboard WITH PASSWORD 'flowboard_password';"
+psql flowboard -c "ALTER USER flowboard WITH PASSWORD 'change-me';"
 ```
 
 ## Building
@@ -47,6 +47,12 @@ java -jar target/flowboard-backend-1.0.0.jar
 ```
 
 The backend will start on `http://localhost:8080/api/v1`
+
+### Profile and Secret Handling
+
+- Local development: use `SPRING_PROFILES_ACTIVE=dev`.
+- Production-like runs: use `SPRING_PROFILES_ACTIVE=prod`.
+- In `prod` profile, secrets are fail-fast required via environment variables (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`, `CORS_ALLOWED_ORIGINS`).
 
 ## API Documentation
 
@@ -71,17 +77,28 @@ The backend will start on `http://localhost:8080/api/v1`
 
 ## Configuration
 
-Edit `src/main/resources/application.yml` to configure:
-- Database connection
-- JWT secret
-- AI engine (mock vs. real)
-- Server port
+Configure backend values with environment variables.
+
+Recommended: copy `.env.example` from the repository root and set secure values for:
+- `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`
+- `JWT_SECRET` (minimum 32 chars)
+- `CORS_ALLOWED_ORIGINS`
+- `APP_LOG_LEVEL`, `SECURITY_LOG_LEVEL`
+- `OPENAI_API_KEY` (mock in P4)
 
 ## Testing
 
 ```bash
 mvn test
 ```
+
+### 10-User Concurrency Smoke Test
+
+```bash
+bash scripts/concurrency_10_users_smoke.sh
+```
+
+See `../docs/P4_BACKEND_CONCURRENCY_VERIFICATION.md` for full verification steps.
 
 ## Troubleshooting
 
