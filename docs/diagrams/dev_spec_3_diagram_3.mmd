@@ -1,0 +1,61 @@
+stateDiagram-v2
+    [*] --> Pending
+    
+    Pending --> UnderReview: user_views_change
+    Pending --> Archived: expire_timeout
+    
+    UnderReview --> Approved: quorum_met_approval
+    UnderReview --> Rejected: rejection_received
+    UnderReview --> UnderReview: add_approval, request_clarification
+    
+    Approved --> ReadyForApplication: all_checks_passed
+    Approved --> UnderReview: approval_revoked
+    
+    Rejected --> Archived: no_appeal
+    Rejected --> UnderReview: request_reconsideration
+    
+    ReadyForApplication --> Applying: user_initiates_apply
+    ReadyForApplication --> ReadyForApplication: schedule_application
+    
+    Applying --> Applied: verification_successful
+    Applying --> RolledBack: verification_failed
+    
+    Applied --> [*]
+    RolledBack --> Rejected: rollback_permanent
+    
+    Archived --> [*]
+    
+    note right of Pending
+        Change pending review
+        Awaiting user attention
+    end note
+    
+    note right of UnderReview
+        User reviewing change
+        Collecting approvals
+    end note
+    
+    note right of Approved
+        Quorum achieved
+        All votes cast
+    end note
+    
+    note right of ReadyForApplication
+        Approved and validated
+        Ready to apply to board
+    end note
+    
+    note right of Applying
+        Change being applied
+        to kanban board
+    end note
+    
+    note right of Applied
+        Applied successfully
+        Board updated
+    end note
+    
+    note right of RolledBack
+        Application failed
+        Reverted to snapshot
+    end note

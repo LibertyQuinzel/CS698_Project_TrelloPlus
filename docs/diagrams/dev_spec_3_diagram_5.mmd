@@ -1,0 +1,38 @@
+sequenceDiagram
+    actor User as TeamMember
+    participant View as ChangePreviewView
+    participant Ctrl as ChangePreviewController
+    participant Service as ChangePreviewService
+    participant Analyzer as ImpactAnalyzer
+    participant Repo as ChangeRepository
+    participant DB as PostgreSQL
+
+    User->>View: Select meeting and click Review Changes
+    activate View
+    
+    View->>Ctrl: getPreviewChanges(meetingId)
+    activate Ctrl
+    
+    Ctrl->>Service: loadPendingChanges(meetingId)
+    activate Service
+    
+    Service->>Repo: findByMeetingId(meetingId)
+    activate Repo
+    Repo->>DB: SELECT * FROM preview_changes WHERE meeting_id = ?
+    DB-->>Repo: List of changes
+    deactivate Repo
+    
+    Service->>Analyzer: analyzeImpact(change)
+    activate Analyzer
+    Analyzer-->>Service: ChangeImpact
+    deactivate Analyzer
+    
+    Service-->>Ctrl: List of changes with impact
+    deactivate Service
+    
+    Ctrl-->>View: PreviewChangeDataTransferObject[]
+    deactivate Ctrl
+    
+    View->>View: renderChangeList()
+    View-->>User: Display summary list with impact indicators
+    deactivate View

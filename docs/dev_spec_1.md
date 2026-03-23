@@ -9,6 +9,7 @@
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 1.1 | 2026-03-16 | Harmonized with dev_spec_2.md and dev_spec_3.md; added Unified Architecture Overview; added missing DS-004 stages table definition; integrated data flow across three user stories |
 | 1.0 | 2026-02-15 | Initial development specification |
 
 ## Author and Role
@@ -16,12 +17,52 @@
 | Author | Role | Version |
 |--------|------|---------|
 | Luke Hill | Lead Architect | 1.0 |
+| Swechcha Ambati | Author | 1.1 |
 
 ---
 
 # User Story
 
 > As a project manager, I want to provide a brief project description and have the AI automatically generate a kanban board with appropriate workflow stages and pre-populated work items, so that I can start managing the project immediately without spending hours setting up the board structure.
+
+---
+
+# Unified Architecture Overview
+
+## Integration with Other User Stories
+
+This specification represents **User Story 1 of 3** in a harmonized backend system:
+
+| User Story | Spec | Purpose | Data Flow |
+|------------|------|---------|-----------|
+| **1. AI Board Generation** | dev_spec_1.md | Project manager creates board via AI | Project → Board → Cards |
+| **2. Meeting Summary & Checklist** | dev_spec_2.md | Meeting facilitator captures meeting and generates summary | Meeting → AI Analysis → ActionItems, Decisions, **Changes** |
+| **3. Change Review & Approval** | dev_spec_3.md | Team member reviews and approves kanban changes | **Changes from WF2** → Preview → Approval → Applied |
+
+## Unified Data Model
+
+All three specifications share:
+- **Unified User/Auth System:** Single users table with consistent role model
+- **Unified Project/Board System:** WF1 establishes projects and boards; WF2 & WF3 operate on these entities
+- **Unified Change Entity:** WF2 creates `Change` records from meetings; WF3 reviews these as `PreviewChange` records from the same database source
+- **Unified Approval Workflow:** Each workflow has its own approval mechanism (WF2 for summaries, WF3 for changes), using consistent patterns
+
+## Data Flow Across Workflows
+
+```
+WF1: ProjectManager creates Project 
+     → AIEngine generates Board + Cards
+     
+WF2: MeetingFacilitator creates Meeting + Notes
+     → AIEngine extracts ActionItems, Decisions, Changes
+     → Creates Change records in database
+     → ApprovalService manages summary approval
+     
+WF3: TeamMember reviews Changes (created by WF2)
+     → PreviewChange displays changes with diff/impact
+     → ApprovalService manages change approval
+     → ChangeApplicationService applies approved changes to Board (from WF1)
+```
 
 ---
 
@@ -63,9 +104,9 @@
 | WF1.1.1 | ProjectInputController | Controller | Handles HyperText Transfer Protocol requests for project creation |
 | WF1.1.2 | ProjectDescription | Struct | Data Transfer Object containing project details |
 | WF1.1.3 | ProjectService | Service | Business logic for project create, read, update, delete |
-| WF1.2.1 | ArtificialIntelligenceEngine | Service | Core Artificial Intelligence component for analysis and generation |
+| WF1.2.1 | AIEngine | Service | Core Artificial Intelligence component for analysis and generation |
 | WF1.2.2 | PromptBuilder | Service | Constructs optimized prompts for Large Language Model |
-| WF1.2.3 | LargeLanguageModelClient | Service | External Application Programming Interface client for Large Language Model services |
+| WF1.2.3 | LLMClient | Service | External Application Programming Interface client for Large Language Model services |
 | WF1.2.4 | ArtificialIntelligenceAnalysisResult | Struct | Stores Artificial Intelligence-generated analysis results |
 | WF1.3.1 | BoardGenerator | Service | Orchestrates board creation from Artificial Intelligence results |
 | WF1.3.2 | BoardTemplate | Struct | Predefined or Artificial Intelligence-generated board configuration |
@@ -90,7 +131,7 @@
 | WF3.1.1 | AuthController | Controller | HyperText Transfer Protocol endpoints for authentication |
 | WF3.1.2 | AuthService | Service | Core authentication logic |
 | WF3.1.3 | PermissionManager | Service | Role-based access control |
-| WF3.1.4 | JsonWebTokenUtil | Utility | Json Web Token generation and validation |
+| WF3.1.4 | JWTUtil | Utility | Json Web Token generation and validation |
 | WF3.2.1 | UserRepository | Repository | Data access for User entity |
 | WF3.2.2 | BoardRepository | Repository | Data access for Board entity |
 | WF3.2.3 | CardRepository | Repository | Data access for Card entity |
@@ -175,17 +216,35 @@
 
 # Technologies
 
-| Technology | Label | Version | Purpose | Source | Documentation URL |
-|------------|-------|---------|---------|--------|-------------------|
-| Java | TECH-LANG-001 | 21 Long Term Support | Backend development | OpenJDK | https://openjdk.org/projects/jdk/21/ |
-| Spring Boot | TECH-FW-001 | 3.2.0 | Application framework | Spring.io | https://spring.io/projects/spring-boot |
-| PostgreSQL | TECH-DB-001 | 16.1 | Primary database | PostgreSQL.org | https://www.postgresql.org/docs/16/ |
-| Redis | TECH-DB-002 | 7.2.3 | Cache & sessions | Redis.io | https://redis.io/documentation |
-| OpenAI GPT-4 | TECH-AI-001 | gpt-4-1106-preview | Artificial Intelligence analysis | OpenAI | https://platform.openai.com/docs/ |
-| LangChain4j | TECH-AI-003 | 0.24.0 | Large Language Model integration | LangChain4j | https://github.com/langchain4j/langchain4j |
-| React | TECH-FE-001 | 18.2.0 | Frontend User Interface | React.dev | https://react.dev |
-| TypeScript | TECH-FE-002 | 5.3.2 | Type-safe frontend | TypeScriptlang.org | https://www.typescriptlang.org/docs/ |
-| Spring Security | TECH-AUTH-001 | 6.2.0 | Authentication | Spring.io | https://spring.io/projects/spring-security |
+| Label | Technology | Version | Purpose | Source Code Available | Upgrade Criteria | Support Model | Selected Over | Justification |
+|-------|------------|---------|---------|----------------------|------------------|---------------|---------------|---------------|
+| TECH-LANG-001 | Java | 21 Long Term Support | Backend application development | Yes (https://github.com/openjdk/jdk) | Major security vulnerabilities; Long Term Support end-of-life | Oracle provides commercial support; OpenJDK community support | Kotlin, Scala | Mature ecosystem; Enterprise adoption; Strong typing; Performance |
+| TECH-FW-001 | Spring Boot | 3.2.0 | Application framework and dependency injection | Yes (https://github.com/spring-projects/spring-boot) | Security patches released; Major version with features needed | VMware Tanzu commercial support; Large community | Quarkus, Micronaut | Industry standard; Extensive documentation; Rich ecosystem; Production proven |
+| TECH-DB-001 | PostgreSQL | 16.1 | Primary relational database | Yes (https://github.com/postgres/postgres) | Critical security issues; Performance improvements | Community support; Commercial support available from multiple vendors | MySQL, MongoDB | ACID compliance; JSON support; Advanced indexing; Open source |
+| TECH-AI-001 | OpenAI GPT-4 Turbo | gpt-4-1106-preview | Primary Large Language Model for analysis and generation | No (Proprietary Application Programming Interface) | Model updates from provider | OpenAI commercial Application Programming Interface support | Google PaLM, Anthropic Claude | Best-in-class performance; Structured output support; Function calling |
+| TECH-AI-002 | Anthropic Claude | claude-3-opus-20240229 | Fallback Large Language Model | No (Proprietary Application Programming Interface) | Model updates from provider | Anthropic commercial Application Programming Interface support | Google PaLM, Cohere | High quality output; Long context window; Reliable fallback |
+| TECH-AI-003 | LangChain4j | 0.24.0 | Large Language Model abstraction layer | Yes (https://github.com/langchain4j/langchain4j) | Breaking changes; Critical bugs | Community support | Direct Application Programming Interface integration | Multi-provider support; Prompt templates; Chain of thought |
+| TECH-FE-001 | React | 18.3.1 | Frontend user interface framework | Yes (https://github.com/facebook/react) | Major security issues; Breaking changes | Meta commercial backing; Large community | Vue, Angular, Svelte | Component model; Virtual Document Object Model; Large ecosystem; Developer familiarity |
+| TECH-FE-002 | TypeScript | 5.3.2 | Type-safe frontend development | Yes (https://github.com/microsoft/TypeScript) | Major version releases; Security issues | Microsoft commercial backing; Community support | JavaScript, Flow | Type safety; Better tooling; Refactoring support; Error catching |
+| TECH-FE-003 | Vite | 6.3.5 | Frontend build tool and development server | Yes (https://github.com/vitejs/vite) | Major version releases; Security updates | Community support; Evan You sponsorship | Webpack, Parcel, esbuild | Fast development server; Optimized builds; Native ES modules |
+| TECH-FE-004 | Tailwind CSS | 4.1.12 | Utility-first Cascading Style Sheets framework | Yes (https://github.com/tailwindlabs/tailwindcss) | Major releases; Security patches | Community support; Commercial backing | Bootstrap, Material CSS | Rapid development; Small bundle size; High customization |
+| TECH-FE-005 | Radix UI | Latest | Headless component library for primitives | Yes (https://github.com/radix-ui/primitives) | Breaking changes; Bug fixes | Community-driven support | Headless UI, Material-UI | Unstyled primitives; Full accessibility; Framework-agnostic |
+| TECH-FE-006 | shadcn/ui | Latest | High-quality React components built on Radix UI | Yes (https://github.com/shadcn-ui/ui) | Component updates; New components | Community-driven | Material-UI, Chakra | Customizable; Copy-paste components; Tailwind-based |
+| TECH-FE-007 | Zustand | 5.0.11 | Lightweight state management | Yes (https://github.com/pmndrs/zustand) | Major releases; Bug fixes | Community support | Redux, Jotai, Recoil | Simple Application Programming Interface; Small bundle; Great developer experience |
+| TECH-FE-008 | React Router | 7.13.0 | Client-side routing | Yes (https://github.com/remix-run/react-router) | Major releases; Security updates | Remix team support; Community | React Location, TanStack Router | Nested routing; Data loading; Loader pattern |
+| TECH-FE-009 | React Hook Form | 7.55.0 | Performant form management | Yes (https://github.com/react-hook-form/react-hook-form) | Major releases; Bug fixes | Community support | Formik, React Final Form | Minimal re-renders; Easy integration; Small bundle |
+| TECH-FE-010 | Axios | 1.6.x | HyperText Transfer Protocol client | Yes (https://github.com/axios/axios) | Security patches; Bug fixes | Community support | Fetch API, node-fetch | Interceptors; Request/response transformers; Error handling |
+| TECH-FE-011 | React DnD | 16.0.1 | Drag-and-drop functionality | Yes (https://github.com/react-dnd/react-dnd) | Major releases; Bug fixes | Community support | Beautiful DnD, dnd-kit | Flexible Application Programming Interface; Testing support; Accessibility |
+| TECH-FE-012 | Lucide React | 0.487.0 | Icon library | Yes (https://github.com/lucide-icons/lucide) | New icons; Bug fixes | Community-driven | Feather, Heroicons, Font Awesome | Consistent icons; Tree-shakeable; Accessibility-focused |
+| TECH-FE-013 | Sonner | Latest | Toast notification library | Yes (https://github.com/emilkowalski/sonner) | New features; Bug fixes | Community support | React Toastify, React Hot Toast | Beautiful animations; Headless component | 
+| TECH-FE-014 | date-fns | 3.6.0 | Date manipulation library | Yes (https://github.com/date-fns/date-fns) | Major releases; Bug fixes | Community support | Moment.js, Day.js | Modular; Immutable; Lightweight |
+| TECH-AUTH-001 | Spring Security | 6.2.0 | Authentication and authorization | Yes (https://github.com/spring-projects/spring-security) | Security vulnerabilities; Major releases | VMware Tanzu commercial support | Auth0, Keycloak | Integrated with Spring; Flexible; Standards-based; Well documented |
+| TECH-AUTH-002 | Json Web Token (jose4j) | 0.9.3 | Json Web Token generation and validation | Yes (https://bitbucket.org/b_c/jose4j) | Security vulnerabilities | Community support | jjwt, nimbus-jose-jwt | Standards compliant; Well tested; Active maintenance |
+| TECH-DB-003 | Flyway | 10.x | Database schema migrations | Yes (https://github.com/flyway/flyway) | Breaking changes; Security issues | Redgate commercial support; Community edition | Liquibase | Simple migration scripts; Version control friendly; Reliable |
+| TECH-TEST-001 | JUnit | 5.10.1 | Unit testing framework | Yes (https://github.com/junit-team/junit5) | Major releases | Community support | TestNG | Industry standard; Annotation-based; Parameterized tests |
+| TECH-TEST-002 | Testcontainers | 1.19.3 | Integration testing with containers | Yes (https://github.com/testcontainers/testcontainers-java) | Security vulnerabilities; New features | AtomicJar commercial support; Community | Docker Compose, Manual containers | Real dependencies; Isolated tests; Easy setup |
+| TECH-BUILD-001 | Gradle | 8.5 | Build automation | Yes (https://github.com/gradle/gradle) | Security issues; Performance improvements | Gradle Inc commercial support; Community | Maven, Bazel | Flexible; Fast; Kotlin Domain-Specific Language; Incremental builds |
+| TECH-CONT-001 | Docker | 24.0.7 | Application containerization | Yes (https://github.com/moby/moby) | Security vulnerabilities | Docker Inc commercial support; Community | Podman, containerd | Industry standard; Registry ecosystem; Build caching |
 
 ---
 
@@ -222,6 +281,76 @@
 | PUT | `/cards/{id}` | WF1.4.4 | Update card |
 | PUT | `/cards/{id}/move` | WF1.4.5 | Move card |
 | DELETE | `/cards/{id}` | WF1.4.6 | Delete card |
+
+---
+
+# Unified Backend API Structure
+
+## Single Backend Serving Three User Stories
+
+All three development specifications (dev_spec_1, dev_spec_2, dev_spec_3) are served by a **single Spring Boot backend** running on a single instance. The backend exposes REST API endpoints organized by feature domain:
+
+### API Endpoint Organization
+
+```
+Base: /api/v1/
+
+WF1 Endpoints (AI Board Generation - dev_spec_1.md):
+  /projects              - Create and manage projects
+  /boards                - Generate and manage kanban boards  
+  /cards                 - Manage work items/cards
+  
+WF2 Endpoints (Meeting Summary - dev_spec_2.md):
+  /meetings              - Create and manage meetings
+  /summaries             - Generate and retrieve meeting summaries
+  /approvals             - Manage summary approval workflow
+  
+WF3 Endpoints (Change Review - dev_spec_3.md):
+  /changes               - Review kanban changes from meetings
+  /changes/{id}/approve  - Approve individual changes
+  /changes/{id}/apply    - Apply approved changes to board
+  
+Shared Endpoints (Auth & User Management):
+  /auth/login            - User authentication
+  /auth/register         - User registration  
+  /auth/logout           - User logout
+  /users/{id}            - User profile management
+```
+
+### Unified Database Connection
+
+All endpoints share a **single PostgreSQL database** (16.1) with the following unified schema:
+
+| Entity | Created By | Used By | Purpose |
+|--------|-----------|---------|---------|
+| users | WF3.1 (Auth) | WF1, WF2, WF3 | User authentication and authorization |
+| projects | WF1 (Project Input) | WF1, WF2, WF3 | Project metadata |
+| boards | WF1 (Board Generator) | WF1, WF3 | Kanban boards |
+| stages | WF1 (Stage Factory) | WF1, WF3 | Board columns |
+| cards | WF1 (Work Item Generator) | WF1, WF3 | Work items/tasks |
+| meeting_sessions | WF2 (Meeting Service) | WF2, WF3 | Meeting metadata |
+| changes | WF2 (Summary Service) | WF3 | Changes extracted from meetings (WF2 writes, WF3 reads) |
+| approval_requests | WF2 (Approval Service) | WF2 | Summary approval workflow |
+| approval_responses | WF2 (Approval Service) | WF2 | Summary approval decisions |
+| preview_changes | WF3 (Change Preview) | WF3 | Change preview and approval state |
+| approval_decisions | WF3 (Approval Service) | WF3 | Change approval decisions |
+| change_snapshots | WF3 (Change Application) | WF3 | Rollback snapshots |
+
+### Cross-Workflow Data Dependencies
+
+```
+WF1 creates:
+  → projects, boards, stages, cards
+
+WF2 operates on:
+  → projects (reference), users (meeting participants)
+  → creates meetings, meeting_sessions, changes
+  
+WF3 depends on:
+  → projects, boards, cards (created by WF1)
+  → changes (created by WF2)
+  → applies approved changes back to cards
+```
 
 ---
 
@@ -388,7 +517,6 @@
 | WF2.2.3.2 | `updateCard()` | `ResponseEntity<CardDTO>` | `cardId: UUID, request: UpdateCardRequest` | Updates card |
 | WF2.2.3.3 | `moveCard()` | `ResponseEntity<CardDTO>` | `cardId: UUID, targetStageId: UUID` | Moves card |
 | WF2.2.3.4 | `deleteCard()` | `ResponseEntity<Void>` | `cardId: UUID` | Deletes card |
-| WF2.2.3.5 | `getCardHistory()` | `ResponseEntity<List<CardHistoryDTO>>` | `cardId: UUID` | Gets card history |
 
 #### Class: WF2.2.4 CardService
 
@@ -400,7 +528,6 @@
 | WF2.2.4.2 | `updateCard()` | `Card` | `cardId: UUID, card: Card` | Updates card |
 | WF2.2.4.3 | `moveToStage()` | `Card` | `cardId: UUID, stageId: UUID` | Moves card to stage |
 | WF2.2.4.4 | `assignUser()` | `Card` | `cardId: UUID, userId: UUID` | Assigns card to user |
-| WF2.2.4.5 | `addComment()` | `Comment` | `cardId: UUID, content: String` | Adds comment to card |
 
 **Cross-component dependencies:**
 - Uses WF3.2.3 CardRepository.save()
@@ -494,7 +621,6 @@
 | WF3.2.3.1 | `save()` | `Card` | `card: Card` | Saves card entity |
 | WF3.2.3.2 | `findById()` | `Optional<Card>` | `id: UUID` | Finds card by ID |
 | WF3.2.3.3 | `findByStageId()` | `List<Card>` | `stageId: UUID` | Finds cards by stage |
-| WF3.2.3.4 | `search()` | `List<Card>` | `query: String` | Searches cards |
 
 **Used by:**
 - WF2.2.2 BoardService
@@ -509,7 +635,6 @@
 | WF3.2.4.1 | `save()` | `Project` | `project: Project` | Saves project entity |
 | WF3.2.4.2 | `findById()` | `Optional<Project>` | `id: UUID` | Finds project by ID |
 | WF3.2.4.3 | `findByUserId()` | `List<Project>` | `userId: UUID` | Finds projects by user |
-| WF3.2.4.4 | `search()` | `List<Project>` | `query: String` | Searches projects |
 
 **Used by:**
 - WF1.1.3 ProjectService
@@ -541,7 +666,7 @@
 
 | Column | Type | Nullable | Notes | Storage Estimate |
 |--------|------|----------|-------|------------------|
-| id | UniversallyUniqueIdentifier | NO | Primary key | 16 bytes |
+| id | UUID | NO | Primary key | 16 bytes |
 | email | VARCHAR(255) | NO | Unique | 50 bytes average |
 | password_hash | VARCHAR(255) | NO | Bcrypt | 60 bytes |
 | first_name | VARCHAR(100) | NO | - | 20 bytes average |
@@ -557,10 +682,10 @@
 
 | Column | Type | Nullable | Notes | Storage Estimate |
 |--------|------|----------|-------|------------------|
-| id | UniversallyUniqueIdentifier | NO | Primary key | 16 bytes |
+| id | UUID | NO | Primary key | 16 bytes |
 | name | VARCHAR(200) | NO | - | 50 bytes average |
 | description | TEXT | YES | - | 200 bytes average |
-| owner_id | UniversallyUniqueIdentifier | NO | Foreign Key to users | 16 bytes |
+| owner_id | UUID | NO | Foreign Key to users | 16 bytes |
 | status | VARCHAR(20) | NO | ACTIVE/ARCHIVED/DELETED | 10 bytes average |
 | created_at | TIMESTAMPTZ | NO | - | 8 bytes |
 
@@ -572,24 +697,39 @@
 
 | Column | Type | Nullable | Notes | Storage Estimate |
 |--------|------|----------|-------|------------------|
-| id | UniversallyUniqueIdentifier | NO | Primary key | 16 bytes |
-| project_id | UniversallyUniqueIdentifier | NO | Foreign Key to projects | 16 bytes |
+| id | UUID | NO | Primary key | 16 bytes |
+| project_id | UUID | NO | Foreign Key to projects | 16 bytes |
 | name | VARCHAR(200) | NO | - | 50 bytes average |
 | created_at | TIMESTAMPTZ | NO | - | 8 bytes |
 
 **Total Storage Per Row:** Approximately 90 bytes
 
-## DS-004: cards
+## DS-004: stages
+
+**Runtime Class:** WF4.4 Stage
+
+| Column | Type | Nullable | Notes | Storage Estimate |
+|--------|------|----------|-------|------------------|
+| id | UUID | NO | Primary key | 16 bytes |
+| board_id | UUID | NO | Foreign Key to boards | 16 bytes |
+| title | VARCHAR(100) | NO | - | 20 bytes average |
+| position | INTEGER | NO | Display order | 4 bytes |
+| color | VARCHAR(20) | YES | Hex color code | 10 bytes average |
+| created_at | TIMESTAMPTZ | NO | - | 8 bytes |
+
+**Total Storage Per Row:** Approximately 92 bytes
+
+## DS-005: cards
 
 **Runtime Class:** WF4.5 Card
 
 | Column | Type | Nullable | Notes | Storage Estimate |
 |--------|------|----------|-------|------------------|
-| id | UniversallyUniqueIdentifier | NO | Primary key | 16 bytes |
-| stage_id | UniversallyUniqueIdentifier | NO | Foreign Key to stages | 16 bytes |
+| id | UUID | NO | Primary key | 16 bytes |
+| stage_id | UUID | NO | Foreign Key to stages | 16 bytes |
 | title | VARCHAR(300) | NO | - | 100 bytes average |
 | description | TEXT | YES | - | 300 bytes average |
-| assignee_id | UniversallyUniqueIdentifier | YES | Foreign Key to users | 16 bytes |
+| assignee_id | UUID | YES | Foreign Key to users | 16 bytes |
 | priority | VARCHAR(10) | NO | LOW/MEDIUM/HIGH/CRITICAL | 8 bytes average |
 | created_at | TIMESTAMPTZ | NO | - | 8 bytes |
 
@@ -721,5 +861,6 @@ Risk Levels: Very Low | Low | Medium | High | Critical
 
 ---
 
-*Document Version: 1.0*
-*Last Updated: 2024-02-15*
+*Document Version: 1.1*
+*Last Updated: 2026-03-16*
+*Authors: Luke Hill (Lead Architect), Swechcha Ambati (Author)*

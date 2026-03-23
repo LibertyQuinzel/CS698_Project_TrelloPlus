@@ -1,0 +1,9 @@
+app:
+  rate-limit:
+    auth:
+      register:
+        max-attempts: 1000
+        window-minutes: 1
+      login:
+        max-failed-attempts: 1000
+        window-minutes: 1

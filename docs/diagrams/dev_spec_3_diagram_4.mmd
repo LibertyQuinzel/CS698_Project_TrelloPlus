@@ -1,0 +1,68 @@
+stateDiagram-v2
+    [*] --> PENDING
+    
+    PENDING --> UNDER_REVIEW: User views change
+    PENDING --> ARCHIVED: Expire or cancel
+    
+    UNDER_REVIEW --> APPROVED: Approval submitted
+    UNDER_REVIEW --> REJECTED: Rejection submitted
+    UNDER_REVIEW --> DEFER: Defer decision
+    
+    APPROVED --> APPROVED: More approvals needed
+    APPROVED --> READY_FOR_APPLICATION: Quorum met
+    APPROVED --> CANCELLED: Cancel after approval
+    
+    REJECTED --> REJECTED: Rejection recorded
+    REJECTED --> PENDING: Resubmit with changes
+    REJECTED --> ARCHIVED: Archive rejection
+    
+    DEFER --> UNDER_REVIEW: Resume review
+    DEFER --> ARCHIVED: Archive deferral
+    
+    READY_FOR_APPLICATION --> APPLYING: Start application
+    READY_FOR_APPLICATION --> ARCHIVED: Archive without applying
+    
+    APPLYING --> APPLIED: Application successful
+    APPLYING --> ROLLED_BACK: Application failed
+    
+    APPLIED --> ARCHIVED: Complete workflow
+    ROLLED_BACK --> PENDING: Manual retry
+    ROLLED_BACK --> ARCHIVED: Archive rollback
+    
+    CANCELLED --> ARCHIVED
+    ARCHIVED --> [*]
+    
+    note right of PENDING
+        Change created but not
+        yet reviewed by team
+    end note
+    
+    note right of UNDER_REVIEW
+        Team members reviewing
+        the change proposal
+    end note
+    
+    note right of APPROVED
+        At least one approval
+        received, awaiting quorum
+    end note
+    
+    note right of READY_FOR_APPLICATION
+        All approvals met
+        Ready to apply to board
+    end note
+    
+    note right of APPLYING
+        Applying changes to
+        kanban board with snapshot
+    end note
+    
+    note right of APPLIED
+        Changes successfully
+        applied and verified
+    end note
+    
+    note right of ROLLED_BACK
+        Application failed
+        Rolled back to snapshot
+    end note

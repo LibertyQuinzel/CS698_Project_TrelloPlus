@@ -10,6 +10,7 @@ import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { useProjectStore, type BoardTask, type BoardColumn } from '../store/projectStore';
 import { toast } from 'sonner';
+import { apiService, mapCardResponseToTask, mapProjectResponseToProject } from '../services/api';
 
 export type { BoardTask as Task };
 
@@ -21,7 +22,16 @@ export function KanbanBoard() {
   const project = useProjectStore((s) => 
     s.projects.find((p) => p.boardId === projectId || p.id === projectId)
   );
-  const { moveTask, updateTask, deleteTask, addTask, addColumnToProject, renameColumn, deleteColumn } = useProjectStore();
+  const {
+    moveTask,
+    updateTask,
+    deleteTask,
+    addTask,
+    addColumnToProject,
+    renameColumn,
+    deleteColumn,
+    updateProject,
+  } = useProjectStore();
 
   const [selectedTask, setSelectedTask] = useState<BoardTask | null>(null);
   const [createTaskColumnId, setCreateTaskColumnId] = useState<string | null>(null);
@@ -40,51 +50,102 @@ export function KanbanBoard() {
     );
   }
 
-  const handleMoveTask = (taskId: string, newColumnId: string) => {
-    moveTask(project.id, taskId, newColumnId);
+  const handleMoveTask = async (taskId: string, newColumnId: string) => {
+    try {
+      const moved = await apiService.moveCard(taskId, { target_stage_id: newColumnId });
+      moveTask(project.id, moved.id, moved.column_id);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to move task');
+    }
   };
 
-  const handleUpdateTask = (updatedTask: BoardTask) => {
-    updateTask(project.id, updatedTask);
-    setSelectedTask(null);
+  const handleUpdateTask = async (updatedTask: BoardTask) => {
+    try {
+      const updated = await apiService.updateCard(updatedTask.id, {
+        title: updatedTask.title,
+        description: updatedTask.description,
+        priority: updatedTask.priority,
+        assignee_id: updatedTask.assignee?.id ?? null,
+      });
+      updateTask(project.id, mapCardResponseToTask(updated));
+      setSelectedTask(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update task');
+    }
   };
 
-  const handleDeleteTask = (taskId: string) => {
-    deleteTask(project.id, taskId);
-    setSelectedTask(null);
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      await apiService.deleteCard(taskId);
+      deleteTask(project.id, taskId);
+      setSelectedTask(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete task');
+    }
   };
 
-  const handleCreateTask = (taskData: { title: string; description: string; priority: BoardTask['priority']; columnId: string }) => {
-    const newTask: BoardTask = {
-      id: `task-${Date.now()}`,
+  const handleCreateTask = async (taskData: { title: string; description: string; priority: BoardTask['priority']; columnId: string; assigneeId?: string }) => {
+    const created = await apiService.createCard(taskData.columnId, {
       title: taskData.title,
       description: taskData.description,
       priority: taskData.priority,
-      createdDate: new Date().toISOString().split('T')[0],
-      columnId: taskData.columnId,
-    };
-    addTask(project.id, newTask);
+      assignee_id: taskData.assigneeId ?? null,
+    });
+    addTask(project.id, mapCardResponseToTask(created));
   };
 
-  const handleAddColumn = () => {
+  const handleAddColumn = async () => {
     if (!newColumnTitle.trim()) {
       toast.error('Column name is required');
       return;
     }
 
-    const colors = ['bg-purple-100', 'bg-pink-100', 'bg-teal-100', 'bg-orange-100', 'bg-indigo-100', 'bg-cyan-100'];
-    const colorIndex = project.columns.length % colors.length;
+    const resolveBoardId = async (): Promise<string | null> => {
+      if (project.boardId) {
+        return project.boardId;
+      }
 
-    const newColumn: BoardColumn = {
-      id: `col-${Date.now()}`,
-      title: newColumnTitle.trim(),
-      color: colors[colorIndex],
+      try {
+        const latest = await apiService.getProject(project.id);
+        const mapped = mapProjectResponseToProject(latest);
+        updateProject(project.id, {
+          boardId: mapped.boardId,
+          columns: mapped.columns,
+          tasks: mapped.tasks,
+        });
+        return mapped.boardId || null;
+      } catch {
+        return null;
+      }
     };
 
-    addColumnToProject(project.id, newColumn);
-    setNewColumnTitle('');
-    setAddingColumn(false);
-    toast.success(`Column "${newColumn.title}" added`);
+    const boardId = await resolveBoardId();
+    if (!boardId) {
+      toast.error('Board is not ready yet. Please refresh and try again.');
+      return;
+    }
+
+    const colors = ['bg-purple-100', 'bg-pink-100', 'bg-teal-100', 'bg-orange-100', 'bg-indigo-100', 'bg-cyan-100'];
+    const columnCount = project.columns.length;
+    const colorIndex = columnCount % colors.length;
+
+    try {
+      const created = await apiService.addStage(boardId, {
+        title: newColumnTitle.trim(),
+        color: colors[colorIndex],
+      });
+      const newColumn: BoardColumn = {
+        id: created.id,
+        title: created.title,
+        color: created.color,
+      };
+      addColumnToProject(project.id, newColumn);
+      setNewColumnTitle('');
+      setAddingColumn(false);
+      toast.success(`Column "${newColumn.title}" added`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to add column');
+    }
   };
 
   const handleStartEditColumn = (columnId: string, currentTitle: string) => {
@@ -92,23 +153,33 @@ export function KanbanBoard() {
     setEditingColumnTitle(currentTitle);
   };
 
-  const handleSaveColumnName = () => {
+  const handleSaveColumnName = async () => {
     if (editingColumnId && editingColumnTitle.trim()) {
-      renameColumn(project.id, editingColumnId, editingColumnTitle.trim());
-      toast.success('Column renamed');
+      try {
+        await apiService.renameStage(editingColumnId, { title: editingColumnTitle.trim() });
+        renameColumn(project.id, editingColumnId, editingColumnTitle.trim());
+        toast.success('Column renamed');
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Failed to rename column');
+      }
     }
     setEditingColumnId(null);
     setEditingColumnTitle('');
   };
 
-  const handleDeleteColumn = (columnId: string) => {
+  const handleDeleteColumn = async (columnId: string) => {
     const tasksInColumn = project.tasks.filter((t) => t.columnId === columnId).length;
     const msg = tasksInColumn > 0
       ? `Delete this column and its ${tasksInColumn} task${tasksInColumn > 1 ? 's' : ''}?`
       : 'Delete this column?';
     if (window.confirm(msg)) {
-      deleteColumn(project.id, columnId);
-      toast.success('Column deleted');
+      try {
+        await apiService.deleteStage(columnId);
+        deleteColumn(project.id, columnId);
+        toast.success('Column deleted');
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Failed to delete column');
+      }
     }
   };
 
@@ -135,10 +206,10 @@ export function KanbanBoard() {
                 editingColumnId={editingColumnId}
                 editingColumnTitle={editingColumnTitle}
                 onStartEditColumn={handleStartEditColumn}
-                onSaveColumnName={handleSaveColumnName}
+                onSaveColumnName={() => void handleSaveColumnName()}
                 onEditingColumnTitleChange={setEditingColumnTitle}
                 onCancelEditColumn={() => setEditingColumnId(null)}
-                onDeleteColumn={handleDeleteColumn}
+                onDeleteColumn={(columnId) => void handleDeleteColumn(columnId)}
               />
             ))}
 
@@ -152,13 +223,13 @@ export function KanbanBoard() {
                     onChange={(e) => setNewColumnTitle(e.target.value)}
                     autoFocus
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleAddColumn();
+                      if (e.key === 'Enter') void handleAddColumn();
                       if (e.key === 'Escape') { setAddingColumn(false); setNewColumnTitle(''); }
                     }}
                     className="mb-2"
                   />
                   <div className="flex gap-2">
-                    <Button size="sm" onClick={handleAddColumn} className="flex-1">
+                    <Button size="sm" onClick={() => void handleAddColumn()} className="flex-1">
                       <Check className="w-4 h-4 mr-1" />
                       Add
                     </Button>
@@ -189,6 +260,7 @@ export function KanbanBoard() {
           <CardDetailModal
             task={selectedTask}
             projectId={project.id}
+            projectMembers={project.members}
             onClose={() => setSelectedTask(null)}
             onUpdate={handleUpdateTask}
             onDelete={handleDeleteTask}
@@ -200,6 +272,7 @@ export function KanbanBoard() {
           <CreateTaskModal
             columnId={createTaskColumnId}
             columnTitle={createTaskColumn.title}
+            projectMembers={project.members}
             onClose={() => setCreateTaskColumnId(null)}
             onCreateTask={handleCreateTask}
           />

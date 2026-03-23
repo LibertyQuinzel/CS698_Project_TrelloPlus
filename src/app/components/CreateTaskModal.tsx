@@ -6,38 +6,50 @@ import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner';
+import { type ProjectMember } from '../store/projectStore';
 
 interface CreateTaskModalProps {
   columnId: string;
   columnTitle: string;
+  projectMembers: ProjectMember[];
   onClose: () => void;
   onCreateTask: (task: {
     title: string;
     description: string;
     priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
     columnId: string;
-  }) => void;
+    assigneeId?: string;
+  }) => Promise<void> | void;
 }
 
-export function CreateTaskModal({ columnId, columnTitle, onClose, onCreateTask }: CreateTaskModalProps) {
+export function CreateTaskModal({ columnId, columnTitle, projectMembers, onClose, onCreateTask }: CreateTaskModalProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'>('MEDIUM');
+  const [assigneeId, setAssigneeId] = useState<string>('unassigned');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const assigneeOptions = projectMembers.filter((member) => Boolean(member.id && member.name?.trim()));
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
       toast.error('Task title is required');
       return;
     }
-    onCreateTask({
-      title: title.trim(),
-      description: description.trim(),
-      priority,
-      columnId,
-    });
-    toast.success('Task created successfully');
-    onClose();
+
+    try {
+      await onCreateTask({
+        title: title.trim(),
+        description: description.trim(),
+        priority,
+        columnId,
+        assigneeId: assigneeId === 'unassigned' ? undefined : assigneeId,
+      });
+      toast.success('Task created successfully');
+      onClose();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to create task');
+    }
   };
 
   return (
@@ -88,6 +100,21 @@ export function CreateTaskModal({ columnId, columnTitle, onClose, onCreateTask }
                 <SelectItem value="MEDIUM">Medium</SelectItem>
                 <SelectItem value="HIGH">High</SelectItem>
                 <SelectItem value="CRITICAL">Critical</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label>Assignee</Label>
+            <Select value={assigneeId} onValueChange={setAssigneeId}>
+              <SelectTrigger className="mt-2">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+                {assigneeOptions.map((member) => (
+                  <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

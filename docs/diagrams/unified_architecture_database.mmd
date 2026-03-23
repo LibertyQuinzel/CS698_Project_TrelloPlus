@@ -1,0 +1,121 @@
+erDiagram
+    USERS ||--o{ PROJECTS : owns
+    USERS ||--o{ MEETINGS : creates
+    USERS ||--o{ APPROVAL_RESPONSES : submits
+    USERS ||--o{ APPROVAL_DECISIONS : submits
+    USERS ||--o{ AUDIT_LOG : performs
+
+    PROJECTS ||--o{ BOARDS : contains
+    PROJECTS ||--o{ MEETINGS : investigated_in
+    BOARDS ||--o{ STAGES : has
+    BOARDS ||--o{ CARDS : contains
+    STAGES ||--o{ CARDS : organizes
+
+    MEETINGS ||--o{ CHANGES : generates
+    MEETINGS ||--o{ APPROVAL_REQUESTS : requires_approval_for
+    CHANGES ||--o{ APPROVAL_DECISIONS : evaluated_by
+    APPROVAL_REQUESTS ||--o{ APPROVAL_RESPONSES : receives
+    APPROVAL_DECISIONS ||--o{ AUDIT_LOG : recorded_in
+    CHANGES ||--o{ AUDIT_LOG : tracked_in
+    CARDS ||--o{ AUDIT_LOG : modified_via
+
+    USERS {
+        uuid id PK
+        string email UK
+        string password_hash
+        string username
+        string role
+        timestamp created_at
+    }
+
+    PROJECTS {
+        uuid id PK
+        uuid owner_id FK
+        string name
+        string description
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    BOARDS {
+        uuid id PK
+        uuid project_id FK
+        string title
+        string description
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    STAGES {
+        uuid id PK
+        uuid board_id FK
+        string name
+        int position
+        timestamp created_at
+    }
+
+    CARDS {
+        uuid id PK
+        uuid board_id FK
+        uuid stage_id FK
+        string title
+        string description
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    MEETINGS {
+        uuid id PK
+        uuid project_id FK
+        uuid created_by FK
+        string status
+        timestamp created_at
+        timestamp ended_at
+    }
+
+    CHANGES {
+        uuid id PK
+        uuid meeting_id FK
+        string change_type
+        json current_state
+        json proposed_state
+        string status
+        timestamp created_at
+        timestamp applied_at
+    }
+
+    APPROVAL_REQUESTS {
+        uuid id PK
+        string summary_id
+        string status
+        timestamp created_at
+        timestamp deadline
+    }
+
+    APPROVAL_RESPONSES {
+        uuid id PK
+        uuid approval_id FK
+        uuid responder_id FK
+        string decision
+        string feedback
+        timestamp responded_at
+    }
+
+    APPROVAL_DECISIONS {
+        uuid id PK
+        uuid change_id FK
+        uuid approver_id FK
+        string decision
+        string feedback
+        timestamp decided_at
+    }
+
+    AUDIT_LOG {
+        uuid id PK
+        string entity_type
+        uuid entity_id
+        string action
+        uuid actor_id FK
+        json details
+        timestamp created_at
+    }

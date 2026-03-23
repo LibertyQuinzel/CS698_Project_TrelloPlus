@@ -1,6 +1,4 @@
-import { useState, useEffect } from 'react';
-import { ChangeRequest, useChangeStore } from '../store/changeStore';
-import { useProjectStore, type BoardTask } from '../store/projectStore';
+import { ChangeRequest } from '../store/changeStore';
 import {
   Dialog,
   DialogContent,
@@ -9,10 +7,7 @@ import {
   DialogDescription,
 } from './ui/dialog';
 import { Badge } from './ui/badge';
-import { Button } from './ui/button';
-import { Checkbox } from './ui/checkbox';
-import { Check } from 'lucide-react';
-import { toast } from 'sonner';
+import { useProjectStore } from '../store/projectStore';
 
 interface ChangeDetailModalProps {
   change: ChangeRequest | null;
@@ -21,197 +16,97 @@ interface ChangeDetailModalProps {
 }
 
 export function ChangeDetailModal({ change, open, onClose }: ChangeDetailModalProps) {
-  const toggleBoardApplication = useChangeStore((s) => s.toggleBoardApplication);
-  const getChangeById = useChangeStore((s) => s.getChangeById);
-  const addTask = useProjectStore((s) => s.addTask);
-  const updateTask = useProjectStore((s) => s.updateTask);
-  const deleteTask = useProjectStore((s) => s.deleteTask);
-  const moveTask = useProjectStore((s) => s.moveTask);
+  const project = useProjectStore((state) =>
+    change ? state.projects.find((p) => p.id === change.projectId) : undefined
+  );
 
-  // Get the latest change data from the store to ensure we have the current state
-  const latestChange = change ? getChangeById(change.id) : null;
-  const currentChange = latestChange || change;
+  if (!change) return null;
 
-  if (!currentChange) return null;
-
-  const handleApplyChange = (checked: boolean) => {
-    if (!currentChange) return;
-
-    // First toggle the state in the store
-    toggleBoardApplication(currentChange.id);
-
-    // The 'checked' parameter represents the NEW state (after toggle)
-    if (checked) {
-      // Apply the change to the board
-      switch (currentChange.type) {
-        case 'CREATE_CARD':
-          if (currentChange.after && currentChange.projectId) {
-            const taskData = currentChange.after as any;
-            
-            // Check if task already exists to avoid duplicates
-            const project = useProjectStore.getState().projects.find(p => p.id === currentChange.projectId);
-            const existingTask = project?.tasks.find(t => t.id === taskData.id);
-            
-            if (!existingTask) {
-              addTask(currentChange.projectId, {
-                id: taskData.id,
-                title: taskData.title,
-                description: taskData.description || '',
-                columnId: taskData.columnId,
-                assignee: taskData.assignee,
-                priority: taskData.priority,
-                createdDate: new Date().toISOString().split('T')[0],
-              });
-              toast.success('Card created on board');
-            }
-          }
-          break;
-
-        case 'UPDATE_CARD':
-          if (currentChange.after && currentChange.projectId) {
-            const taskData = currentChange.after as any;
-            const project = useProjectStore.getState().projects.find(p => p.id === currentChange.projectId);
-            const existingTask = project?.tasks.find(t => t.id === taskData.id);
-            
-            if (existingTask) {
-              updateTask(currentChange.projectId, {
-                ...existingTask,
-                title: taskData.title,
-                description: taskData.description,
-                assignee: taskData.assignee,
-                priority: taskData.priority,
-                columnId: existingTask.columnId, // Preserve the column
-              });
-              toast.success('Card updated on board');
-            }
-          }
-          break;
-
-        case 'MOVE_CARD':
-          if (currentChange.after && currentChange.projectId) {
-            const taskData = currentChange.after as any;
-            const project = useProjectStore.getState().projects.find(p => p.id === currentChange.projectId);
-            const existingTask = project?.tasks.find(t => t.id === taskData.id);
-            
-            if (existingTask) {
-              moveTask(currentChange.projectId, taskData.id, taskData.columnId);
-              toast.success('Card moved on board');
-            }
-          }
-          break;
-
-        case 'DELETE_CARD':
-          if (currentChange.before && currentChange.projectId) {
-            const taskData = currentChange.before as any;
-            const project = useProjectStore.getState().projects.find(p => p.id === currentChange.projectId);
-            const existingTask = project?.tasks.find(t => t.id === taskData.id);
-            
-            if (existingTask) {
-              deleteTask(currentChange.projectId, taskData.id);
-              toast.success('Card deleted from board');
-            }
-          }
-          break;
-      }
-    } else {
-      // Revert the change
-      switch (currentChange.type) {
-        case 'CREATE_CARD':
-          if (currentChange.after && currentChange.projectId) {
-            const taskData = currentChange.after as any;
-            const project = useProjectStore.getState().projects.find(p => p.id === currentChange.projectId);
-            const existingTask = project?.tasks.find(t => t.id === taskData.id);
-            
-            if (existingTask) {
-              deleteTask(currentChange.projectId, taskData.id);
-              toast.info('Card removed from board');
-            }
-          }
-          break;
-
-        case 'UPDATE_CARD':
-          if (currentChange.before && currentChange.projectId) {
-            const taskData = currentChange.before as any;
-            const project = useProjectStore.getState().projects.find(p => p.id === currentChange.projectId);
-            const existingTask = project?.tasks.find(t => t.id === taskData.id);
-            
-            if (existingTask) {
-              updateTask(currentChange.projectId, {
-                ...existingTask,
-                title: taskData.title,
-                description: taskData.description,
-                assignee: taskData.assignee,
-                priority: taskData.priority,
-                columnId: existingTask.columnId, // Preserve the column
-              });
-              toast.info('Card reverted to previous state');
-            }
-          }
-          break;
-
-        case 'MOVE_CARD':
-          if (currentChange.before && currentChange.projectId) {
-            const taskData = currentChange.before as any;
-            const project = useProjectStore.getState().projects.find(p => p.id === currentChange.projectId);
-            const existingTask = project?.tasks.find(t => t.id === taskData.id);
-            
-            if (existingTask) {
-              moveTask(currentChange.projectId, taskData.id, taskData.columnId);
-              toast.info('Card moved back');
-            }
-          }
-          break;
-
-        case 'DELETE_CARD':
-          if (currentChange.before && currentChange.projectId) {
-            const taskData = currentChange.before as any;
-            
-            // Check if task already exists to avoid duplicates
-            const project = useProjectStore.getState().projects.find(p => p.id === currentChange.projectId);
-            const existingTask = project?.tasks.find(t => t.id === taskData.id);
-            
-            if (!existingTask) {
-              addTask(currentChange.projectId, {
-                id: taskData.id,
-                title: taskData.title,
-                description: taskData.description || '',
-                columnId: taskData.columnId,
-                assignee: taskData.assignee,
-                priority: taskData.priority,
-                createdDate: new Date().toISOString().split('T')[0],
-              });
-              toast.info('Card restored to board');
-            }
-          }
-          break;
-      }
-    }
+  const resolveColumnNameById = (id: string) => {
+    const column = project?.columns?.find((c) => c.id === id);
+    return column?.title || id;
   };
+
+  const getColumnLabel = (value: any) => {
+    if (!value || typeof value !== 'object') return 'N/A';
+    if (value.columnTitle) return value.columnTitle;
+    if (value.stageTitle) return value.stageTitle;
+    if (value.columnName) return value.columnName;
+    if (value.stageName) return value.stageName;
+    if (value.columnId && typeof value.columnId === 'string') return resolveColumnNameById(value.columnId);
+    if (value.stageId && typeof value.stageId === 'string') return resolveColumnNameById(value.stageId);
+    return 'N/A';
+  };
+
+  const resolveLiveBeforeForUpdate = () => {
+    if (!change || change.type !== 'UPDATE_CARD' || !project) return change?.before;
+
+    const beforeId = change.before && typeof change.before === 'object' ? (change.before as any).id : undefined;
+    const afterId = change.after && typeof change.after === 'object' ? (change.after as any).id : undefined;
+    const targetCardId = beforeId || afterId;
+
+    if (!targetCardId || typeof targetCardId !== 'string') {
+      return change.before;
+    }
+
+    const currentCard = project.tasks.find((task) => task.id === targetCardId);
+    if (!currentCard) {
+      return change.before;
+    }
+
+    const currentColumn = project.columns.find((column) => column.id === currentCard.columnId);
+    return {
+      id: currentCard.id,
+      title: currentCard.title,
+      description: currentCard.description,
+      priority: currentCard.priority,
+      columnId: currentCard.columnId,
+      columnTitle: currentColumn?.title || currentCard.columnId,
+    };
+  };
+
+  const resolvedBeforeState = resolveLiveBeforeForUpdate();
 
   const renderValue = (value: any) => {
     if (typeof value === 'object' && value !== null) {
-      return Object.entries(value)
-        .filter(([key]) => key !== 'id')
-        .map(([key, val]) => {
-          // Handle nested objects (like assignee)
-          let displayValue = val;
-          if (typeof val === 'object' && val !== null) {
-            // If it's an object with a 'name' property, use that
-            if ('name' in val) {
-              displayValue = val.name;
-            } else {
-              // Otherwise, stringify it nicely
-              displayValue = JSON.stringify(val);
-            }
-          }
-          
-          return (
-            <div key={key} className="mb-2">
-              <span className="font-medium capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}: </span>
-              <span className="text-gray-700">{String(displayValue)}</span>
+      const columnLabel = getColumnLabel(value);
+      const filteredEntries = Object.entries(value).filter(([key]) =>
+        key !== 'id'
+        && key !== 'stageId'
+        && key !== 'columnId'
+        && key !== 'stageTitle'
+        && key !== 'columnTitle'
+        && key !== 'stageName'
+        && key !== 'columnName'
+      );
+
+      return (
+        <>
+          {columnLabel !== 'N/A' && (
+            <div className="mb-2">
+              <span className="font-medium">Column: </span>
+              <span className="text-gray-700">{columnLabel}</span>
             </div>
-          );
-        });
+          )}
+          {filteredEntries.map(([key, val]) => {
+            let displayValue = val;
+            if (typeof val === 'object' && val !== null) {
+              if ('name' in val) {
+                displayValue = val.name;
+              } else {
+                displayValue = JSON.stringify(val);
+              }
+            }
+
+            return (
+              <div key={key} className="mb-2">
+                <span className="font-medium capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}: </span>
+                <span className="text-gray-700">{String(displayValue)}</span>
+              </div>
+            );
+          })}
+        </>
+      );
     }
     return <span className="text-gray-700">{String(value)}</span>;
   };
@@ -230,76 +125,60 @@ export function ChangeDetailModal({ change, open, onClose }: ChangeDetailModalPr
           {/* Change Type and Apply Checkbox */}
           <div className="flex items-center justify-between">
             <Badge variant="outline" className="text-sm">
-              {currentChange.type.replace(/_/g, ' ')}
+              {change.type.replace(/_/g, ' ')}
             </Badge>
-            
-            <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
-              <Checkbox 
-                id={`apply-change-${currentChange.id}`}
-                checked={currentChange.isAppliedToBoard || false}
-                onCheckedChange={handleApplyChange}
-                className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-              />
-              <label 
-                htmlFor={`apply-change-${currentChange.id}`}
-                className="text-sm font-medium text-blue-900 cursor-pointer select-none"
-              >
-                Apply to Board
-              </label>
-              {currentChange.isAppliedToBoard && <Check className="w-4 h-4 text-green-600" />}
-            </div>
           </div>
 
           {/* Visual Comparison */}
           <div className="grid md:grid-cols-2 gap-4">
             {/* Before State */}
-            {currentChange.before && (
+            {resolvedBeforeState && (
               <div className="bg-red-50 rounded-lg p-4 border border-red-200">
                 <h3 className="font-semibold text-red-900 mb-3 flex items-center gap-2">
                   <span className="w-2 h-2 bg-red-500 rounded-full"></span>
                   Before
                 </h3>
                 <div className="text-sm space-y-1">
-                  {renderValue(currentChange.before)}
+                  {renderValue(resolvedBeforeState)}
                 </div>
               </div>
             )}
 
             {/* After State */}
-            {currentChange.after && (
+            {change.after && (
               <div className="bg-green-50 rounded-lg p-4 border border-green-200">
                 <h3 className="font-semibold text-green-900 mb-3 flex items-center gap-2">
                   <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                   After
                 </h3>
                 <div className="text-sm space-y-1">
-                  {renderValue(currentChange.after)}
+                  {renderValue(change.after)}
                 </div>
               </div>
             )}
 
             {/* For CREATE_CARD - only show After */}
-            {!currentChange.before && currentChange.after && (
+            {!resolvedBeforeState && change.after && (
               <div className="md:col-span-2 bg-green-50 rounded-lg p-4 border border-green-200">
                 <h3 className="font-semibold text-green-900 mb-3 flex items-center gap-2">
                   <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                   New Card
                 </h3>
                 <div className="text-sm space-y-1">
-                  {renderValue(currentChange.after)}
+                  {renderValue(change.after)}
                 </div>
               </div>
             )}
 
             {/* For DELETE_CARD - only show Before */}
-            {currentChange.before && !currentChange.after && (
+            {resolvedBeforeState && !change.after && (
               <div className="md:col-span-2 bg-red-50 rounded-lg p-4 border border-red-200">
                 <h3 className="font-semibold text-red-900 mb-3 flex items-center gap-2">
                   <span className="w-2 h-2 bg-red-500 rounded-full"></span>
                   Card to be Deleted
                 </h3>
                 <div className="text-sm space-y-1">
-                  {renderValue(currentChange.before)}
+                  {renderValue(resolvedBeforeState)}
                 </div>
               </div>
             )}

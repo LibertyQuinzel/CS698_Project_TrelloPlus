@@ -4,14 +4,18 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
+import { apiService } from '../services/api';
+import { useProjectStore } from '../store/projectStore';
 
 export function Login() {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const navigate = useNavigate();
+  const updateUser = useProjectStore((s) => s.updateUser);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!email.trim() || !password.trim()) {
@@ -19,14 +23,35 @@ export function Login() {
       return;
     }
 
+    if (!emailRegex.test(email.trim())) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
     setIsLoading(true);
     
-    // Simulate login
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const response = await apiService.login({
+        email: email.trim(),
+        password: password.trim(),
+      });
+
+      // Store token and user info
+      localStorage.setItem('authToken', response.token);
+      localStorage.setItem('user', JSON.stringify(response.user));
+      updateUser({
+        name: response.user.fullName || response.user.username || 'User',
+        email: response.user.email || '',
+        role: response.user.role || 'Member',
+      });
+
       toast.success('Welcome back!');
       navigate('/');
-    }, 1000);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Login failed');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -61,12 +86,7 @@ export function Login() {
             </div>
             
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <Label htmlFor="login-password">Password</Label>
-                <a href="#" className="text-xs text-blue-600 hover:text-blue-700">
-                  Forgot password?
-                </a>
-              </div>
+              <Label htmlFor="login-password" className="mb-2 block">Password</Label>
               <Input
                 id="login-password"
                 type="password"

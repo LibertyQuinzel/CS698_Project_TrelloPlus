@@ -11,6 +11,7 @@ import {
 import { useProjectStore, type Project } from '../store/projectStore';
 import { EditProjectModal } from './EditProjectModal';
 import { toast } from 'sonner';
+import { apiService, mapProjectResponseToProject } from '../services/api';
 
 interface ProjectCardProps {
   project: Project;
@@ -18,18 +19,31 @@ interface ProjectCardProps {
 
 export function ProjectCard({ project }: ProjectCardProps) {
   const navigate = useNavigate();
-  const { deleteProject, duplicateProject } = useProjectStore();
+  const { deleteProject, addProject } = useProjectStore();
   const [showEdit, setShowEdit] = useState(false);
 
-  const handleDuplicate = () => {
-    duplicateProject(project.id);
-    toast.success(`"${project.name}" duplicated`);
+  const handleDuplicate = async () => {
+    try {
+      const duplicated = await apiService.createProject({
+        name: `${project.name} (Copy)`,
+        description: project.description,
+      });
+      addProject(mapProjectResponseToProject(duplicated));
+      toast.success(`"${project.name}" duplicated`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to duplicate project');
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (window.confirm(`Delete "${project.name}"? This cannot be undone.`)) {
-      deleteProject(project.id);
-      toast.success(`"${project.name}" deleted`);
+      try {
+        await apiService.deleteProject(project.id);
+        deleteProject(project.id);
+        toast.success(`"${project.name}" deleted`);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Failed to delete project');
+      }
     }
   };
 
@@ -61,10 +75,10 @@ export function ProjectCard({ project }: ProjectCardProps) {
               <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setShowEdit(true); }}>
                 Edit
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDuplicate(); }}>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handleDuplicate(); }}>
                 Duplicate
               </DropdownMenuItem>
-              <DropdownMenuItem className="text-red-600" onClick={(e) => { e.stopPropagation(); handleDelete(); }}>
+              <DropdownMenuItem className="text-red-600" onClick={(e) => { e.stopPropagation(); void handleDelete(); }}>
                 Delete
               </DropdownMenuItem>
             </DropdownMenuContent>

@@ -1,0 +1,42 @@
+sequenceDiagram
+    actor User as TeamMember
+    participant View as ChangePreviewView
+    participant Ctrl as ApprovalController
+    participant Service as ApprovalService
+    participant Processor as DecisionProcessor
+    participant Repo as ApprovalRepository
+    participant DB as PostgreSQL
+
+    User->>View: Click Approve and confirm
+    activate View
+    
+    View->>Ctrl: approveChange(changeId, userId, feedback)
+    activate Ctrl
+    
+    Ctrl->>Service: submitApproval(changeId, userId, feedback)
+    activate Service
+    
+    Service->>Service: checkApprovalAuthority(userId)
+    
+    Service->>Processor: processDecision(approval)
+    activate Processor
+    Processor->>Processor: evaluateQuorum(changeId)
+    
+    Processor-->>Service: QuorumStatus (met or pending)
+    deactivate Processor
+    
+    Service->>Repo: save(approval_decision)
+    activate Repo
+    Repo->>DB: INSERT INTO approval_decisions
+    DB-->>Repo: decision_id UUID
+    deactivate Repo
+    
+    Service-->>Ctrl: ApprovalResultDataTransferObject (status: APPROVED or UNDER_REVIEW)
+    deactivate Service
+    
+    Ctrl-->>View: 200 OK (approval recorded)
+    deactivate Ctrl
+    
+    View->>View: updateChangeStatus()
+    View-->>User: Approval recorded successfully
+    deactivate View

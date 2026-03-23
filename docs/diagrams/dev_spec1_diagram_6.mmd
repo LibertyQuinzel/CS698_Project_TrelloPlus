@@ -1,0 +1,95 @@
+sequenceDiagram
+    actor User as BoardUser
+    participant View as CardUI
+    participant Controller as CardController
+    participant Service as CardService
+    participant Repo as CardRepository
+    participant DB as PostgreSQL
+
+    User->>View: Click "Add Card" button
+    activate View
+    
+    View->>View: Show create card form
+    User->>View: Enter title, description, priority
+    User->>View: Click Create
+    
+View->>Controller: POST /api/v1/cards (create)
+    activate Controller
+    
+    Controller->>Service: createCard(cardRequest)
+    activate Service
+    
+    Service->>Service: validateInputs()
+    Service->>Repo: save(card)
+    activate Repo
+    
+    Repo->>DB: INSERT INTO cards (title, description, priority, stage_id)
+    DB-->>Repo: card_id UUID
+    deactivate Repo
+    
+    Service-->>Controller: Card entity
+    deactivate Service
+    
+    Controller-->>View: 201 Created (card)
+    deactivate Controller
+    
+    View->>View: addCardToBoard(card)
+    View-->>User: Card added to stage successfully
+    deactivate View
+    
+    User->>View: Drag card to different stage
+    activate View
+    
+    View->>Controller: PUT /api/v1/cards/{cardId}/move
+    activate Controller
+    
+    Controller->>Service: moveCard(cardId, newStageId)
+    activate Service
+    
+    Service->>Repo: updateStage(cardId, newStageId)
+    activate Repo
+    
+    Repo->>DB: UPDATE cards SET stage_id = ? WHERE id = ?
+    DB-->>Repo: 1 row updated
+    deactivate Repo
+    
+    Service-->>Controller: Updated card
+    deactivate Service
+    
+    Controller-->>View: 200 OK (card moved)
+    deactivate Controller
+    
+    View->>View: updateCardPosition()
+    View-->>User: Card moved successfully
+    deactivate View
+    
+    User->>View: Click card to edit
+    activate View
+    
+    View->>View: Show edit form with current values
+    User->>View: Update title and priority
+    User->>View: Click Save
+    
+    View->>Controller: PUT /api/v1/cards/{cardId} (update)
+    activate Controller
+    
+    Controller->>Service: updateCard(cardId, updates)
+    activate Service
+    
+    Service->>Service: validateInputs()
+    Service->>Repo: save(card)
+    activate Repo
+    
+    Repo->>DB: UPDATE cards SET title=?, priority=? WHERE id = ?
+    DB-->>Repo: 1 row updated
+    deactivate Repo
+    
+    Service-->>Controller: Updated card
+    deactivate Service
+    
+    Controller-->>View: 200 OK (card updated)
+    deactivate Controller
+    
+    View->>View: updateCardDisplay()
+    View-->>User: Card updated successfully
+    deactivate View

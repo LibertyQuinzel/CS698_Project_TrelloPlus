@@ -1,0 +1,61 @@
+graph LR
+    subgraph WF1["Workflow 1: AI Board Generation"]
+        WF1_Input["📝 Project Description"]
+        WF1_Process["AIEngine<br/>+ PromptBuilder<br/>+ LLMClient"]
+        WF1_Output["🎯 Board Generated<br/>- Stages<br/>- Cards<br/>- Metadata"]
+        WF1_DB["💾 Database<br/>projects<br/>boards<br/>stages<br/>cards"]
+        
+        WF1_Input --> WF1_Process
+        WF1_Process --> WF1_Output
+        WF1_Output --> WF1_DB
+    end
+
+    subgraph WF2["Workflow 2: Meeting Summary & Checklist"]
+        WF2_Input["🎤 Meeting Notes<br/>+ Summary Text"]
+        WF2_Process["SummaryService<br/>+ AIEngine<br/>+ ContentStructurer"]
+        WF2_Output["📋 Summary Generated<br/>- Action Items<br/>- Decisions<br/>- Changes"]
+        WF2_Approval["✅ Team Votes<br/>Consensus Check"]
+        WF2_DB["💾 Database<br/>meeting_sessions<br/>changes<br/>approval_requests<br/>approval_responses"]
+        
+        WF2_Input --> WF2_Process
+        WF2_Process --> WF2_Output
+        WF2_Output --> WF2_Approval
+        WF2_Approval --> WF2_DB
+    end
+
+    subgraph WF3["Workflow 3: Change Review & Approval"]
+        WF3_Input["🔍 Changes from WF2<br/>+ Board State from WF1"]
+        WF3_Preview["ChangePreviewService<br/>+ DiffCalculator<br/>+ ImpactAnalyzer"]
+        WF3_Display["📊 Change Preview<br/>- Diffs<br/>- Impact<br/>- Conflicts"]
+        WF3_Review["👁️ Team Reviews<br/>Individual Changes"]
+        WF3_Approval["✅ Team Approves<br/>Quorum Check"]
+        WF3_Apply["⚙️ ChangeApplicationService<br/>Transactional Apply<br/>+ Rollback on Error"]
+        WF3_DB["💾 Database<br/>changes (APPLIED)<br/>approval_decisions<br/>audit_log"]
+        
+        WF3_Input --> WF3_Preview
+        WF3_Preview --> WF3_Display
+        WF3_Display --> WF3_Review
+        WF3_Review --> WF3_Approval
+        WF3_Approval --> WF3_Apply
+        WF3_Apply --> WF3_DB
+    end
+
+    %% Cross-workflow flow
+    WF1_DB -->|Provides Board<br/>Context| WF2_Input
+    WF2_DB -->|Changes to<br/>Review| WF3_Input
+    WF1_DB -->|Current State| WF3_Input
+    WF3_DB -->|✨ Board Updated<br/>with Changes| WF1_DB
+
+    classDef workflow fill:#3498db,stroke:#2980b9,color:#fff
+    classDef db fill:#34495e,stroke:#2c3e50,color:#fff
+    classDef input fill:#e74c3c,stroke:#c0392b,color:#fff
+    classDef process fill:#f39c12,stroke:#d68910,color:#fff
+    classDef output fill:#27ae60,stroke:#1e8449,color:#fff
+    classDef approval fill:#9b59b6,stroke:#8e44ad,color:#fff
+
+    class WF1,WF2,WF3 workflow
+    class WF1_DB,WF2_DB,WF3_DB db
+    class WF1_Input,WF2_Input,WF3_Input input
+    class WF1_Process,WF2_Process,WF3_Preview process
+    class WF1_Output,WF2_Output,WF3_Display output
+    class WF2_Approval,WF3_Review,WF3_Approval approval

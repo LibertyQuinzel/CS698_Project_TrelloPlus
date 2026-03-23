@@ -1,0 +1,62 @@
+sequenceDiagram
+    actor Facilitator
+    participant MeetingCtrl as MeetingController
+    participant SummaryCtrl as SummaryController
+    participant SummaryInput as SummaryInputService
+    participant SummaryService
+    participant AIEngine
+    participant ContentStructurer
+    participant ApprovalService
+    participant Repo as SummaryRepository
+    participant DB as PostgreSQL
+
+    Facilitator->>MeetingCtrl: POST /api/v1/meetings/{id}/end
+    activate MeetingCtrl
+    
+    Facilitator->>SummaryInput: POST /api/v1/summaries/generate (summary_text)
+    activate SummaryInput
+    SummaryInput->>SummaryInput: validate()
+    
+    SummaryInput->>SummaryService: generateSummary(meetingId, summary_text)
+    activate SummaryService
+    
+    SummaryService->>AIEngine: analyzeMeeting(summary_text)
+    activate AIEngine
+    AIEngine->>AIEngine: extractActionItems()
+    AIEngine->>AIEngine: extractDecisions()
+    AIEngine->>AIEngine: extractChanges()
+    AIEngine-->>SummaryService: ActionItems, Decisions, Changes
+    deactivate AIEngine
+    
+    SummaryService->>ContentStructurer: structure(analysis_results)
+    activate ContentStructurer
+    ContentStructurer->>ContentStructurer: format_for_review()
+    ContentStructurer-->>SummaryService: MeetingSummary
+    deactivate ContentStructurer
+    
+    SummaryService->>Repo: save(summary)
+    activate Repo
+    Repo->>DB: INSERT INTO meeting_summaries
+    DB-->>Repo: summary_id UUID
+    deactivate Repo
+    
+    SummaryService->>ApprovalService: createApprovalRequest(summary_id)
+    activate ApprovalService
+    ApprovalService->>Repo: save(approval_request)
+    activate Repo
+    Repo->>DB: INSERT INTO approval_requests
+    DB-->>Repo: request_id UUID
+    deactivate Repo
+    ApprovalService-->>SummaryService: ApprovalRequest
+    deactivate ApprovalService
+    
+    SummaryService-->>SummaryInput: MeetingSummary + ApprovalRequest
+    deactivate SummaryService
+    
+    SummaryInput-->>Facilitator: 201 Created (summary in pending approval state)
+    deactivate SummaryInput
+    
+    Facilitator->>SummaryCtrl: GET /api/v1/approvals/pending
+    activate SummaryCtrl
+    SummaryCtrl-->>Facilitator: List of pending approvals
+    deactivate SummaryCtrl

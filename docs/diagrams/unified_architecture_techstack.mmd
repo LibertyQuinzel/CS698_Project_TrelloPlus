@@ -1,0 +1,87 @@
+graph TB
+    subgraph Frontend["Frontend (React/TypeScript)"]
+        Web["🌐 React 18.3.1<br/>TypeScript 5.3.2<br/>Vite 6.3.5<br/>Tailwind CSS 4.1.12"]
+    end
+
+    subgraph Backend["Backend (Spring Boot 3.2.0)"]
+        App["Java 21 LTS"]
+        Spring["Spring Core 6.1.0<br/>Spring Web 6.1.0<br/>Spring Data JPA 3.2.0<br/>Spring Security 6.2.0"]
+    end
+
+    subgraph Database["Persistent Storage"]
+        Postgres["PostgreSQL 16.1<br/>ACID Transactions<br/>JSON Support<br/>Advanced Indexing"]
+        Flyway["Flyway 10.x<br/>Schema Migrations<br/>Version Control"]
+    end
+
+    subgraph AI["AI/LLM Integration"]
+        LLMAbstraction["LangChain4j 0.24.0<br/>Multi-Provider Support"]
+        Primary["🔴 OpenAI GPT-4 Turbo<br/>gpt-4-1106-preview<br/>Primary Provider"]
+        Fallback["🟡 Anthropic Claude 3<br/>claude-3-opus-20240229<br/>Fallback Provider"]
+    end
+
+    subgraph Testing["Testing & Quality"]
+        Unit["JUnit 5.10.1<br/>Unit Tests"]
+        Integration["Testcontainers 1.19.3<br/>Integration Tests"]
+        Mock["Mockito<br/>Mocking"]
+    end
+
+    subgraph Build["Build & Deployment"]
+        Gradle["Gradle 8.5<br/>Build Tool"]
+        Docker["Docker 24.0.7<br/>Containerization"]
+        K8s["Kubernetes<br/>Orchestration"]
+    end
+
+    subgraph Auth["Security & Auth"]
+        JWT["jose4j 0.9.3<br/>JWT Tokens"]
+        Encrypt["bcrypt<br/>Password Hashing<br/>Secrets Manager<br/>TLS Encryption"]
+    end
+
+    subgraph Deployment["Production Deployment"]
+        AWS["AWS Infrastructure"]
+        ECS["ECS Fargate<br/>3+ Containers<br/>Auto-scaling"]
+        RDS["RDS PostgreSQL<br/>Multi-AZ<br/>Read Replicas<br/>Automated Backups"]
+        ALB["Application Load Balancer<br/>Health Checks<br/>SSL/TLS"]
+        CloudWatch["CloudWatch<br/>Monitoring<br/>Logging<br/>Alerting"]
+        Secrets["Secrets Manager<br/>API Keys<br/>Credentials"]
+    end
+
+    %% Connections
+    Frontend -->|HTTP/REST| Backend
+    Backend -->|JDBC| Database
+    Postgres --> Flyway
+    Backend --> AI
+    LLMAbstraction --> Primary
+    LLMAbstraction --> Fallback
+    Backend --> Auth
+    Backend --> Testing
+    Testing --> Unit
+    Testing --> Integration
+    Testing --> Mock
+    Backend --> Build
+    Gradle --> Docker
+    Docker --> K8s
+    K8s --> Deployment
+    Deployment --> ECS
+    Deployment --> RDS
+    Deployment --> ALB
+    Deployment --> CloudWatch
+    Deployment --> Secrets
+    ALB --> Frontend
+
+    classDef frontend fill:#3498db,stroke:#2980b9,color:#fff
+    classDef backend fill:#e74c3c,stroke:#c0392b,color:#fff
+    classDef database fill:#34495e,stroke:#2c3e50,color:#fff
+    classDef ai fill:#f39c12,stroke:#d68910,color:#fff
+    classDef testing fill:#9b59b6,stroke:#8e44ad,color:#fff
+    classDef build fill:#1abc9c,stroke:#16a085,color:#fff
+    classDef auth fill:#27ae60,stroke:#1e8449,color:#fff
+    classDef deploy fill:#2c3e50,stroke:#000,color:#fff
+
+    class Frontend,Web frontend
+    class Backend,App,Spring backend
+    class Database,Postgres,Flyway database
+    class AI,LLMAbstraction,Primary,Fallback ai
+    class Testing,Unit,Integration,Mock testing
+    class Build,Gradle,Docker,K8s build
+    class Auth,JWT,Encrypt auth
+    class Deployment,AWS,ECS,RDS,ALB,CloudWatch,Secrets deploy

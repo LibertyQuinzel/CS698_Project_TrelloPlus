@@ -8,33 +8,42 @@ import { Label } from './ui/label';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Badge } from './ui/badge';
-import { type BoardTask } from '../store/projectStore';
+import { type BoardTask, type ProjectMember } from '../store/projectStore';
 import { Alert, AlertDescription } from './ui/alert';
 
 interface CardDetailModalProps {
   task: BoardTask;
   projectId?: string;
+  projectMembers?: ProjectMember[];
   onClose: () => void;
-  onUpdate: (task: BoardTask) => void;
+  onUpdate: (task: BoardTask) => Promise<void> | void;
   onDelete: (taskId: string) => void;
 }
 
 type ModalState = 'view' | 'editing' | 'saving' | 'success';
 
-export function CardDetailModal({ task, onClose, onUpdate, onDelete }: CardDetailModalProps) {
+export function CardDetailModal({ task, projectMembers = [], onClose, onUpdate, onDelete }: CardDetailModalProps) {
   const [modalState, setModalState] = useState<ModalState>('view');
   const [editedTask, setEditedTask] = useState<BoardTask>(task);
 
-  const handleSave = () => {
+  const assigneeOptions = projectMembers.filter((member) => Boolean(member.id && member.name?.trim()));
+
+  const selectedAssigneeValue = editedTask.assignee?.id && assigneeOptions.some((member) => member.id === editedTask.assignee?.id)
+    ? editedTask.assignee.id
+    : 'unassigned';
+
+  const handleSave = async () => {
     setModalState('saving');
-    
-    // Simulate save operation
-    setTimeout(() => {
+
+    try {
+      await onUpdate(editedTask);
       setModalState('success');
       setTimeout(() => {
-        onUpdate(editedTask);
-      }, 800);
-    }, 1000);
+        setModalState('view');
+      }, 600);
+    } catch {
+      setModalState('editing');
+    }
   };
 
   const handleDelete = () => {
@@ -125,13 +134,16 @@ export function CardDetailModal({ task, onClose, onUpdate, onDelete }: CardDetai
               <Label className="text-sm">Assignee</Label>
               {modalState === 'editing' ? (
                 <Select
-                  value={editedTask.assignee?.name || 'unassigned'}
+                  value={selectedAssigneeValue}
                   onValueChange={(value) =>
                     setEditedTask({
                       ...editedTask,
                       assignee: value === 'unassigned'
                         ? undefined
-                        : { name: value },
+                        : (() => {
+                            const member = assigneeOptions.find((candidate) => candidate.id === value);
+                            return member ? { id: member.id, name: member.name } : undefined;
+                          })(),
                     })
                   }
                 >
@@ -140,10 +152,9 @@ export function CardDetailModal({ task, onClose, onUpdate, onDelete }: CardDetai
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="unassigned">Unassigned</SelectItem>
-                    <SelectItem value="Sarah Chen">Sarah Chen</SelectItem>
-                    <SelectItem value="Mike Johnson">Mike Johnson</SelectItem>
-                    <SelectItem value="Alex Kim">Alex Kim</SelectItem>
-                    <SelectItem value="Emma Davis">Emma Davis</SelectItem>
+                    {assigneeOptions.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               ) : (

@@ -1,0 +1,91 @@
+graph TB
+    User["👤 Team Member"]
+    
+    subgraph CLIENT["🖥️ CLIENT (Browser - React)"]
+        PreviewUI["Change Preview UI<br/>React + TypeScript"]
+        ApprovalUI["Approval Decision UI<br/>React + TypeScript"]
+    end
+    
+    subgraph AP1["AP1: Preview & Preparation<br/>(Spring Boot Server)"]
+        ChangePreviewCtrl["ChangePreviewController<br/>(REST /api/v1/changes)"]
+        ChangePreviewView["ChangePreviewService"]
+        DiffCalculator["DiffCalculator<br/>(Java Service)"]
+        ImpactAnalyzer["ImpactAnalyzer<br/>(Java Service)"]
+    end
+    
+    subgraph AP2["AP2: Approval & Decision<br/>(Spring Boot Server)"]
+        ApprovalCtrl["ApprovalController<br/>(REST /api/v1/approvals)"]
+        ApprovalService["ApprovalService"]
+        DecisionProcessor["DecisionProcessor<br/>(Quorum Logic)"]
+        ConflictResolver["ConflictResolver<br/>(Conflict Detection)"]
+    end
+    
+    subgraph AP3["AP3: Change Application<br/>(Spring Boot Server)"]
+        ChangeAppService["ChangeApplicationService"]
+        ApplicationStager["ApplicationStager"]
+        TransactionManager["TransactionManager<br/>(DB Transactions)"]
+        ChangeValidator["ChangeValidator"]
+    end
+    
+    subgraph NOTIFICATION["AP4: History & Audit<br/>(Spring Boot Server)"]
+        HistoryRepo["HistoryRepository<br/>(JPA)"]
+        AlertDispatcher["AlertDispatcher<br/>(Email/Slack)"]
+        RealTimeUpdater["RealTimeUpdater<br/>(WebSocket)"]
+    end
+    
+    subgraph DATABASE["🗄️ DATABASE (PostgreSQL 16.1)"]
+        ChangeRepo["ChangeRepository<br/>(JPA)"]
+        ApprovalRepo["ApprovalRepository<br/>(JPA)"]
+        DecisionRepo["DecisionRepository<br/>(JPA)"]
+        DB["PostgreSQL<br/>On-Premise/Cloud"]
+    end
+    
+    subgraph INTEGRATION["AP6: External Integration<br/>(Spring Boot Gateway)"]
+        KanbanGateway["KanbanBoardGateway<br/>(REST call to WF1)"]
+        MeetingGateway["MeetingGateway<br/>(REST call to WF2)"]
+    end
+    
+    User -->|"1. HTTP GET<br/>Change Preview"| PreviewUI
+    PreviewUI -->|"2. HTTP GET<br/>/api/v1/changes"| ChangePreviewCtrl
+    ChangePreviewCtrl -->|"3. Service Call"| ChangePreviewView
+    
+    ChangePreviewView -->|"4. JPA Query"| ChangeRepo
+    ChangeRepo -->|"5. SELECT"| DB
+    
+    ChangePreviewView -->|"6. Service Call"| DiffCalculator
+    DiffCalculator -->|"7. Service Call"| ImpactAnalyzer
+    DiffCalculator -->|"8. HTTP Response"| PreviewUI
+    
+    User -->|"9. HTTP POST<br/>Approval Decision"| ApprovalUI
+    ApprovalUI -->|"10. HTTP POST<br/>/api/v1/approvals"| ApprovalCtrl
+    ApprovalCtrl -->|"11. Service Call"| ApprovalService
+    ApprovalService -->|"12. Service Call"| DecisionProcessor
+    DecisionProcessor -->|"13. Service Call"| ConflictResolver
+    
+    DecisionProcessor -->|"14. JPA Save"| ApprovalRepo
+    ApprovalRepo -->|"15. INSERT/UPDATE"| DB
+    
+    User -->|"16. HTTP POST<br/>Apply Changes"| PreviewUI
+    PreviewUI -->|"17. HTTP POST<br/>/api/v1/changes/apply"| ChangeAppService
+    
+    ChangeAppService -->|"18. Service Call"| ChangeValidator
+    ChangeAppService -->|"19. Service Call"| ApplicationStager
+    ApplicationStager -->|"20. Service Call"| TransactionManager
+    TransactionManager -->|"21. HTTP PUT<br/>to WF1"| KanbanGateway
+    KanbanGateway -->|"22. Update Cards"| APP
+    
+    TransactionManager -->|"23. JPA Save"| HistoryRepo
+    HistoryRepo -->|"24. INSERT"| DB
+    
+    ApprovalService -->|"25a. Send Email/Slack"| AlertDispatcher
+    ApprovalService -->|"25b. WebSocket"| RealTimeUpdater
+    AlertDispatcher -->|"26. Push Notification"| User
+    RealTimeUpdater -->|"26. Real-time Update"| User
+    
+    KanbanGateway -->|"Integrates with"| APP
+    MeetingGateway -->|"Integrates with"| APP
+    
+    subgraph APP["OTHER WORKFLOWS<br/>(External Systems)"]
+        WF1["WF1: Board<br/>Management<br/>(Spring Boot)"]
+        WF2["WF2: Meeting<br/>Summary<br/>(Spring Boot)"]
+    end

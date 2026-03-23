@@ -1,0 +1,35 @@
+stateDiagram-v2
+    [*] --> Created
+    
+    Created --> InProgress: assign_to_member
+    Created --> Archived: archive_immediately
+    
+    InProgress --> Done: mark_complete
+    InProgress --> Created: move_back
+    InProgress --> InProgress: update_card
+    InProgress --> Archived: archive
+    
+    Done --> InProgress: reopen_card
+    Done --> Archived: archive
+    
+    Archived --> [*]
+    
+    note right of Created
+        Card created in a stage
+        Ready for assignment
+    end note
+    
+    note right of InProgress
+        Card assigned to member
+        Work in progress
+    end note
+    
+    note right of Done
+        Card completed
+        Ready for review
+    end note
+    
+    note right of Archived
+        Card archived
+        No longer active
+    end note

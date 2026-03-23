@@ -1,0 +1,46 @@
+sequenceDiagram
+    actor User as TeamMember
+    participant Ctrl as ApprovalController
+    participant AppService as ChangeApplicationService
+    participant Validator as ChangeValidator
+    participant Gateway as KanbanBoardGateway
+    participant Repo as ChangeRepository
+    participant DB as PostgreSQL
+
+    User->>Ctrl: POST /api/v1/changes/{changeId}/apply
+    activate Ctrl
+    
+    Ctrl->>AppService: applyApprovedChanges(changeIds)
+    activate AppService
+    
+    AppService->>AppService: createSnapshot(changeId)
+    
+    AppService->>Validator: validateApplication(change)
+    activate Validator
+    Validator->>Validator: checkPreconditions()
+    Validator-->>AppService: valid
+    deactivate Validator
+    
+    AppService->>Gateway: applyToBoard(proposedState)
+    activate Gateway
+    Gateway->>DB: UPDATE cards SET title=?, stage_id=?
+    DB-->>Gateway: updates applied
+    deactivate Gateway
+    
+    AppService->>Validator: verifyApplication(changeId)
+    activate Validator
+    Validator->>Validator: checkPostconditions()
+    Validator-->>AppService: verified
+    deactivate Validator
+    
+    AppService->>Repo: updateStatus(changeId, APPLIED)
+    activate Repo
+    Repo->>DB: UPDATE preview_changes SET status = APPLIED
+    DB-->>Repo: 1 row updated
+    deactivate Repo
+    
+    AppService-->>Ctrl: ApplicationResultDataTransferObject (success: true)
+    deactivate AppService
+    
+    Ctrl-->>User: 200 OK (changes applied to board)
+    deactivate Ctrl

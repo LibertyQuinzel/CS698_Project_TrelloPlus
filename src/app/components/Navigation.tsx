@@ -131,7 +131,6 @@ export function Navigation({ onMenuClick, onToggleSidebar, sidebarCollapsed }: N
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => navigate('/profile')}>Profile</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/team')}>Team</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="text-red-600">
                 <LogOut className="w-4 h-4 mr-2" />

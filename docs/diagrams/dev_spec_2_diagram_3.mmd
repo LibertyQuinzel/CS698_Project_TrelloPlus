@@ -1,0 +1,50 @@
+stateDiagram-v2
+    [*] --> Scheduled
+    
+    Scheduled --> InProgress: start_meeting
+    Scheduled --> Cancelled: cancel
+    
+    InProgress --> SummaryGeneration: end_meeting
+    InProgress --> InProgress: add_notes, record_decisions, capture_action_items
+    
+    SummaryGeneration --> PendingApproval: summary_generated
+    SummaryGeneration --> InProgress: regenerate_from_notes
+    
+    PendingApproval --> Approved: all_approvals_received
+    PendingApproval --> Rejected: approval_rejected
+    PendingApproval --> PendingApproval: send_reminders
+    
+    Approved --> ChangesApplied: apply_changes
+    Approved --> Completed: mark_complete
+    
+    Rejected --> InProgress: revise_and_regenerate
+    
+    ChangesApplied --> Completed: confirm_application
+    
+    Cancelled --> [*]
+    Completed --> [*]
+    
+    note right of Scheduled
+        Meeting scheduled
+        Waiting to start
+    end note
+    
+    note right of InProgress
+        Meeting in progress
+        Capturing notes and items
+    end note
+    
+    note right of SummaryGeneration
+        AI generating summary
+        Extracting items/decisions/changes
+    end note
+    
+    note right of PendingApproval
+        Awaiting team approval
+        of summary content
+    end note
+    
+    note right of Approved
+        Summary approved
+        Ready for application
+    end note

@@ -1,0 +1,60 @@
+graph TB
+    subgraph SharedApproval["🔄 Shared ApprovalService Pattern"]
+        ApprovalSvc["ApprovalService<br/>- evaluateRules()<br/>- recordDecision()<br/>- notifyObservers()"]
+        RuleEngine["ApprovalRuleEngine<br/>Pluggable Rules"]
+        ConsensusEngine["ConsensusEngine<br/>Consensus/Quorum Logic"]
+        
+        ApprovalSvc --> RuleEngine
+        ApprovalSvc --> ConsensusEngine
+    end
+
+    subgraph WF2_Approval["WF2: Summary Approval"]
+        WF2_Start["Summary Generated"]
+        WF2_CreateReq["Create ApprovalRequest<br/>Required Approvers: All Meeting Participants<br/>Rule: all_participants_approve"]
+        WF2_Voting["📊 Voting Phase<br/>Participants vote on items:<br/>- Do you approve action item A?<br/>- Do you approve decision B?"]
+        WF2_Consensus["Consensus Check<br/>If all approve → APPROVED<br/>Else → needs discussion<br/>Else → REJECTED"]
+        WF2_Result["✅ Summary APPROVED<br/>→ Changes created<br/>→ Changes status = READY_FOR_WF3"]
+        WF2_Reject["❌ Summary REJECTED<br/>→ Back to facilitator<br/>→ No changes created"]
+        
+        WF2_Start --> WF2_CreateReq
+        WF2_CreateReq --> WF2_Voting
+        WF2_Voting --> WF2_Consensus
+        WF2_Consensus -->|Consensus Met| WF2_Result
+        WF2_Consensus -->|No Consensus| WF2_Reject
+    end
+
+    subgraph WF3_Approval["WF3: Change Approval"]
+        WF3_Start["Changes Loaded for Review"]
+        WF3_CreateReq["Create ApprovalRequest per Change<br/>Required Approvers: Project Leaders<br/>Rule: quorum_of_leaders"]
+        WF3_Voting["📊 Review Phase<br/>Leaders review each change:<br/>- Approve this card move?<br/>- Approve this card created?"]
+        WF3_Consensus["Quorum Check<br/>If 2 of 3 leaders approve → APPROVED<br/>If all reject → REJECTED<br/>Else → more needed"]
+        WF3_Result["✅ Change APPROVED<br/>→ Mark as READY_FOR_APPLICATION<br/>→ ChangeApplicationService.apply()"]
+        WF3_Reject["❌ Change REJECTED<br/>→ Return to summary<br/>→ No board changes"]
+        
+        WF3_Start --> WF3_CreateReq
+        WF3_CreateReq --> WF3_Voting
+        WF3_Voting --> WF3_Consensus
+        WF3_Consensus -->|Quorum Met| WF3_Result
+        WF3_Consensus -->|No Quorum| WF3_Reject
+    end
+
+    %% Connections to shared service
+    WF2_CreateReq --> SharedApproval
+    WF2_Voting --> SharedApproval
+    WF2_Consensus --> SharedApproval
+    
+    WF3_CreateReq --> SharedApproval
+    WF3_Voting --> SharedApproval
+    WF3_Consensus --> SharedApproval
+
+    classDef shared fill:#f39c12,stroke:#d68910,color:#fff
+    classDef wf2 fill:#3498db,stroke:#2980b9,color:#fff
+    classDef wf3 fill:#9b59b6,stroke:#8e44ad,color:#fff
+    classDef success fill:#27ae60,stroke:#1e8449,color:#fff
+    classDef failure fill:#e74c3c,stroke:#c0392b,color:#fff
+
+    class SharedApproval,ApprovalSvc,RuleEngine,ConsensusEngine shared
+    class WF2_Start,WF2_CreateReq,WF2_Voting,WF2_Consensus wf2
+    class WF3_Start,WF3_CreateReq,WF3_Voting,WF3_Consensus wf3
+    class WF2_Result,WF3_Result success
+    class WF2_Reject,WF3_Reject failure
