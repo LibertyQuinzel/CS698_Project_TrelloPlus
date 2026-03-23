@@ -11,9 +11,12 @@ import com.flowboard.service.RateLimitService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
 import java.util.UUID;
@@ -27,6 +30,18 @@ public class AuthController {
     private final JWTService jwtService;
     private final RateLimitService rateLimitService;
 
+    @Value("${app.rate-limit.auth.register.max-attempts:5}")
+    private int registerMaxAttempts;
+
+    @Value("${app.rate-limit.auth.register.window-minutes:15}")
+    private int registerWindowMinutes;
+
+    @Value("${app.rate-limit.auth.login.max-failed-attempts:10}")
+    private int loginMaxFailedAttempts;
+
+    @Value("${app.rate-limit.auth.login.window-minutes:15}")
+    private int loginWindowMinutes;
+
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(
         @Valid @RequestBody RegisterRequest request,
@@ -34,8 +49,8 @@ public class AuthController {
     ) {
         rateLimitService.check(
             "register:ip:" + httpRequest.getRemoteAddr(),
-            5,
-            Duration.ofMinutes(15),
+            registerMaxAttempts,
+            Duration.ofMinutes(registerWindowMinutes),
             "Too many registration attempts. Please try again later."
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
@@ -46,19 +61,32 @@ public class AuthController {
         @Valid @RequestBody LoginRequest request,
         HttpServletRequest httpRequest
     ) {
-        rateLimitService.check(
-            "login:ip:" + httpRequest.getRemoteAddr(),
-            10,
-            Duration.ofMinutes(15),
+        String ipKey = "login:ip:" + httpRequest.getRemoteAddr();
+        String emailKey = "login:email:" + request.getEmail().trim().toLowerCase();
+
+        rateLimitService.assertNotLimited(
+            ipKey,
+            loginMaxFailedAttempts,
+            Duration.ofMinutes(loginWindowMinutes),
             "Too many failed attempts in a short period. Please try again later."
         );
-        rateLimitService.check(
-            "login:email:" + request.getEmail().trim().toLowerCase(),
-            10,
-            Duration.ofMinutes(15),
+        rateLimitService.assertNotLimited(
+            emailKey,
+            loginMaxFailedAttempts,
+            Duration.ofMinutes(loginWindowMinutes),
             "Too many failed attempts for this account. Please try again later."
         );
-        return ResponseEntity.ok(authService.login(request));
+
+        try {
+            return ResponseEntity.ok(authService.login(request));
+        } catch (ResponseStatusException ex) {
+            HttpStatusCode status = ex.getStatusCode();
+            if (status.value() == HttpStatus.UNAUTHORIZED.value()) {
+                rateLimitService.record(ipKey);
+                rateLimitService.record(emailKey);
+            }
+            throw ex;
+        }
     }
 
     @PostMapping("/logout")

@@ -120,18 +120,20 @@ class AuthControllerUserStory1ApiTest {
             .andExpect(jsonPath("$.token").value("jwt-login-token"))
             .andExpect(jsonPath("$.user.email").value("admin@flowboard.com"));
 
-        verify(rateLimitService).check(
+        verify(rateLimitService).assertNotLimited(
             startsWith("login:ip:"),
             eq(10),
             eq(Duration.ofMinutes(15)),
             eq("Too many failed attempts in a short period. Please try again later.")
         );
-        verify(rateLimitService).check(
+        verify(rateLimitService).assertNotLimited(
             eq("login:email:admin@flowboard.com"),
             eq(10),
             eq(Duration.ofMinutes(15)),
             eq("Too many failed attempts for this account. Please try again later.")
         );
+        verify(rateLimitService, never()).record(startsWith("login:ip:"));
+        verify(rateLimitService, never()).record(eq("login:email:admin@flowboard.com"));
         verify(authService).login(any(LoginRequest.class));
     }
 

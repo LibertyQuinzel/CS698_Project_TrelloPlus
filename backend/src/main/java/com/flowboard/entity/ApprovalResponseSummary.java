@@ -34,6 +34,7 @@ public class ApprovalResponseSummary {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Builder.Default
     private ApprovalResponse response = ApprovalResponse.PENDING;
 
     @Column(columnDefinition = "TEXT")
@@ -47,6 +48,10 @@ public class ApprovalResponseSummary {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    @Version
+    @Column(nullable = false)
+    private Long version;
 
     public enum ApprovalResponse {
         PENDING, APPROVED, REJECTED

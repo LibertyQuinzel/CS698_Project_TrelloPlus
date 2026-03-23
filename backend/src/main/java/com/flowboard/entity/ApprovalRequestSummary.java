@@ -29,9 +29,11 @@ public class ApprovalRequestSummary {
     private Meeting meeting;
 
     @Column(nullable = false)
+    @Builder.Default
     private Integer requiredApprovals = 0;
 
     @OneToMany(mappedBy = "approvalRequest", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private Set<ApprovalResponseSummary> responses = new HashSet<>();
 
     @CreationTimestamp
@@ -40,4 +42,8 @@ public class ApprovalRequestSummary {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    @Version
+    @Column(nullable = false)
+    private Long version;
 }

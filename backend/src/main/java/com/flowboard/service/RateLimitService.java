@@ -15,6 +15,11 @@ public class RateLimitService {
     private final ConcurrentMap<String, Deque<Long>> requestLog = new ConcurrentHashMap<>();
 
     public void check(String key, int maxRequests, Duration window, String message) {
+        assertNotLimited(key, maxRequests, window, message);
+        record(key);
+    }
+
+    public void assertNotLimited(String key, int maxRequests, Duration window, String message) {
         long now = System.currentTimeMillis();
         long threshold = now - window.toMillis();
 
@@ -27,7 +32,13 @@ public class RateLimitService {
             if (bucket.size() >= maxRequests) {
                 throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, message);
             }
+        }
+    }
 
+    public void record(String key) {
+        long now = System.currentTimeMillis();
+        Deque<Long> bucket = requestLog.computeIfAbsent(key, ignored -> new ArrayDeque<>());
+        synchronized (bucket) {
             bucket.addLast(now);
         }
     }

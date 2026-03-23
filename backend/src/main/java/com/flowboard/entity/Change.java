@@ -42,6 +42,7 @@ public class Change {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Builder.Default
     private ChangeStatus status = ChangeStatus.PENDING;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -56,6 +57,10 @@ public class Change {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    @Version
+    @Column(nullable = false)
+    private Long version;
 
     public enum ChangeType {
         MOVE_CARD, UPDATE_CARD, CREATE_CARD, DELETE_CARD
