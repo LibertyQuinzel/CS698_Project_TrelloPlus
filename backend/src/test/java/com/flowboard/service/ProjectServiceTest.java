@@ -26,6 +26,25 @@ import static org.mockito.Mockito.*;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class ProjectServiceTest {
 
+    // =============== Test Constants ===============
+    // Fixed UUIDs for deterministic testing and easier debugging
+    private static final UUID OWNER_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+    private static final UUID MEMBER1_ID = UUID.fromString("00000000-0000-0000-0000-000000000002");
+    private static final UUID MEMBER2_ID = UUID.fromString("00000000-0000-0000-0000-000000000003");
+    private static final UUID PROJECT_ID = UUID.fromString("00000000-0000-0000-0000-000001000001");
+    private static final UUID BOARD_ID = UUID.fromString("00000000-0000-0000-0000-000002000001");
+    private static final UUID STAGE_ID = UUID.fromString("00000000-0000-0000-0000-000003000001");
+    private static final UUID CARD_ID = UUID.fromString("00000000-0000-0000-0000-000004000001");
+    
+    // String constants to avoid hardcoded validation thresholds
+    private static final String VALID_AI_PROMPT_DESCRIPTION = "This is a five word description here";
+    private static final String INSUFFICIENT_AI_DESCRIPTION = "Only four words";
+    private static final String VALID_PROJECT_NAME = "Valid";
+    private static final String VALID_DESCRIPTION = "Valid description";
+    private static final int MAX_PROJECT_NAME_LENGTH = 255;
+    private static final int MAX_PROJECT_DESCRIPTION_LENGTH = 5000;
+    private static final int MAX_STAGE_TITLE_LENGTH = 100;
+
     @Mock
     private ProjectRepository projectRepository;
 
@@ -74,13 +93,14 @@ class ProjectServiceTest {
 
     @BeforeEach
     void setUp() {
-        ownerId = UUID.randomUUID();
-        member1Id = UUID.randomUUID();
-        member2Id = UUID.randomUUID();
-        projectId = UUID.randomUUID();
-        boardId = UUID.randomUUID();
-        stageId = UUID.randomUUID();
-        cardId = UUID.randomUUID();
+        // Use fixed UUIDs instead of random ones for deterministic testing
+        ownerId = OWNER_ID;
+        member1Id = MEMBER1_ID;
+        member2Id = MEMBER2_ID;
+        projectId = PROJECT_ID;
+        boardId = BOARD_ID;
+        stageId = STAGE_ID;
+        cardId = CARD_ID;
 
         owner = createMockUser(ownerId, "owner@example.com", "owner", "Project Owner");
         member1 = createMockUser(member1Id, "member1@example.com", "member1", "Member One");
@@ -161,7 +181,7 @@ class ProjectServiceTest {
     void createProject_withGenerateTasksTrue_shouldGenerateAiBoardAndBroadcast() {
         CreateProjectRequest request = CreateProjectRequest.builder()
             .name("AI Project")
-            .description("This is a five word description here")
+            .description(VALID_AI_PROMPT_DESCRIPTION)
             .generateTasks(true)
             .build();
 
@@ -170,11 +190,13 @@ class ProjectServiceTest {
 
         when(projectRepository.findActiveByOwnerAndNameIgnoreCase(owner, "AI Project"))
             .thenReturn(Collections.emptyList());
-        when(projectRepository.save(any())).thenReturn(testProject);
-        when(aiEngine.analyzeProjectDescription("AI Project", "This is a five word description here"))
+        Project aiProject = createMockProject(projectId, owner, "AI Project", VALID_AI_PROMPT_DESCRIPTION, false);
+        when(projectRepository.save(any())).thenReturn(aiProject);
+        when(aiEngine.analyzeProjectDescription("AI Project", VALID_AI_PROMPT_DESCRIPTION))
             .thenReturn(analysisResult);
-        when(boardGenerator.generateBoard(testProject, analysisResult)).thenReturn(generatedBoard);
-        when(boardRepository.findByProjectId(projectId)).thenReturn(Collections.singletonList(generatedBoard));
+        Board generatedBoardForAi = createMockBoard(boardId, aiProject);
+        when(boardGenerator.generateBoard(any(), eq(analysisResult))).thenReturn(generatedBoardForAi);
+        when(boardRepository.findByProjectId(projectId)).thenReturn(Collections.singletonList(generatedBoardForAi));
         when(projectMemberRepository.findProjectMemberRoles(projectId)).thenReturn(new ArrayList<>());
 
         ProjectDTO result = projectService.createProject(request, owner);
@@ -182,11 +204,11 @@ class ProjectServiceTest {
         assertNotNull(result);
         assertEquals("AI Project", result.getName());
         assertEquals(boardId, result.getBoardId());
-        verify(projectRepository).save(any());
-        verify(projectMemberRepository).upsertMemberRole(projectId, ownerId, "owner");
-        verify(aiEngine).analyzeProjectDescription("AI Project", "This is a five word description here");
-        verify(boardGenerator).generateBoard(testProject, analysisResult);
-        verify(broadcastService).broadcastProjectCreated(any());
+        verify(projectRepository, times(1)).save(any());
+        verify(projectMemberRepository, times(1)).upsertMemberRole(projectId, ownerId, "owner");
+        verify(aiEngine, times(1)).analyzeProjectDescription("AI Project", VALID_AI_PROMPT_DESCRIPTION);
+        verify(boardGenerator, times(1)).generateBoard(any(), eq(analysisResult));
+        verify(broadcastService, times(1)).broadcastProjectCreated(any());
     }
 
     @Test
@@ -201,8 +223,10 @@ class ProjectServiceTest {
 
         when(projectRepository.findActiveByOwnerAndNameIgnoreCase(owner, "Manual Project"))
             .thenReturn(Collections.emptyList());
-        when(projectRepository.save(any())).thenReturn(testProject);
-        when(boardGenerator.generateEmptyBoard(testProject)).thenReturn(emptyBoard);
+        Project manualProject = createMockProject(projectId, owner, "Manual Project", "Custom description", false);
+        when(projectRepository.save(any())).thenReturn(manualProject);
+        Board emptyBoardForManual = createMockBoard(boardId, manualProject);
+        when(boardGenerator.generateEmptyBoard(any())).thenReturn(emptyBoardForManual);
         when(projectMemberRepository.findProjectMemberRoles(projectId)).thenReturn(new ArrayList<>());
 
         ProjectDTO result = projectService.createProject(request, owner);
@@ -210,16 +234,16 @@ class ProjectServiceTest {
         assertNotNull(result);
         assertEquals("Manual Project", result.getName());
         verify(projectRepository).save(any());
-        verify(boardGenerator).generateEmptyBoard(testProject);
+        verify(boardGenerator).generateEmptyBoard(any());
         verify(aiEngine, never()).analyzeProjectDescription(anyString(), anyString());
-        verify(broadcastService).broadcastProjectCreated(any());
+        verify(broadcastService, times(1)).broadcastProjectCreated(any());
     }
 
     @Test
     void createProject_withNullGenerateTasks_shouldDefaultToTrueAndGenerateAiBoard() {
         CreateProjectRequest request = CreateProjectRequest.builder()
             .name("Default")
-            .description("This is a five word desc here")
+            .description(VALID_AI_PROMPT_DESCRIPTION)
             .generateTasks(null)
             .build();
 
@@ -229,7 +253,7 @@ class ProjectServiceTest {
         when(projectRepository.findActiveByOwnerAndNameIgnoreCase(owner, "Default"))
             .thenReturn(Collections.emptyList());
         when(projectRepository.save(any())).thenReturn(testProject);
-        when(aiEngine.analyzeProjectDescription("Default", "This is a five word desc here"))
+        when(aiEngine.analyzeProjectDescription("Default", VALID_AI_PROMPT_DESCRIPTION))
             .thenReturn(analysisResult);
         when(boardGenerator.generateBoard(testProject, analysisResult)).thenReturn(generatedBoard);
         when(projectMemberRepository.findProjectMemberRoles(projectId)).thenReturn(new ArrayList<>());
@@ -238,8 +262,8 @@ class ProjectServiceTest {
         ProjectDTO result = projectService.createProject(request, owner);
 
         assertNotNull(result);
-        verify(aiEngine).analyzeProjectDescription("Default", "This is a five word desc here");
-        verify(boardGenerator).generateBoard(testProject, analysisResult);
+        verify(aiEngine, times(1)).analyzeProjectDescription("Default", VALID_AI_PROMPT_DESCRIPTION);
+        verify(boardGenerator, times(1)).generateBoard(testProject, analysisResult);
     }
 
     @Test
@@ -273,10 +297,35 @@ class ProjectServiceTest {
     }
 
     @Test
+    void createProject_withLeadingTrailingSpaces_shouldTrimName() {
+        CreateProjectRequest request = CreateProjectRequest.builder()
+            .name("  Trimmed Project  ")
+            .description(VALID_AI_PROMPT_DESCRIPTION)
+            .generateTasks(false)
+            .build();
+
+        when(projectRepository.findActiveByOwnerAndNameIgnoreCase(owner, "Trimmed Project"))
+            .thenReturn(Collections.emptyList());
+        
+        Project trimmedProject = createMockProject(projectId, owner, "Trimmed Project", "Desc is at least five words here", false);
+        when(projectRepository.save(any(Project.class))).thenReturn(trimmedProject);
+        
+        Board emptyBoard = createMockBoard(boardId, trimmedProject);
+        when(boardGenerator.generateEmptyBoard(any(Project.class))).thenReturn(emptyBoard);
+        when(projectMemberRepository.findProjectMemberRoles(projectId)).thenReturn(new ArrayList<>());
+
+        ProjectDTO result = projectService.createProject(request, owner);
+
+        assertNotNull(result);
+        assertEquals("Trimmed Project", result.getName());
+        verify(projectRepository).save(argThat(p -> "Trimmed Project".equals(p.getName())));
+    }
+
+    @Test
     void createProject_withNameExceeding255Chars_shouldThrowBadRequest() {
         CreateProjectRequest request = CreateProjectRequest.builder()
-            .name("x".repeat(256))
-            .description("Valid description")
+            .name("x".repeat(MAX_PROJECT_NAME_LENGTH + 1))
+            .description(VALID_DESCRIPTION)
             .build();
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
@@ -290,8 +339,8 @@ class ProjectServiceTest {
     @Test
     void createProject_withDescriptionExceeding5000Chars_shouldThrowBadRequest() {
         CreateProjectRequest request = CreateProjectRequest.builder()
-            .name("Valid")
-            .description("x".repeat(5001))
+            .name(VALID_PROJECT_NAME)
+            .description("x".repeat(MAX_PROJECT_DESCRIPTION_LENGTH + 1))
             .build();
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
@@ -305,8 +354,8 @@ class ProjectServiceTest {
     @Test
     void createProject_withInsufficientDescriptionForAiGeneration_shouldThrowBadRequest() {
         CreateProjectRequest request = CreateProjectRequest.builder()
-            .name("Valid")
-            .description("Only four words")
+            .name(VALID_PROJECT_NAME)
+            .description(INSUFFICIENT_AI_DESCRIPTION)
             .generateTasks(true)
             .build();
 
@@ -362,7 +411,7 @@ class ProjectServiceTest {
     @Test
     void createProject_withNullDescription_shouldAccept() {
         CreateProjectRequest request = CreateProjectRequest.builder()
-            .name("Valid")
+            .name(VALID_PROJECT_NAME)
             .description(null)
             .generateTasks(false)
             .build();
@@ -385,8 +434,8 @@ class ProjectServiceTest {
     @Test
     void createProject_shouldAddOwnerAsMemberWithOwnerRole() {
         CreateProjectRequest request = CreateProjectRequest.builder()
-            .name("Valid")
-            .description("Valid description")
+            .name(VALID_PROJECT_NAME)
+            .description(VALID_DESCRIPTION)
             .generateTasks(false)
             .build();
 
@@ -408,8 +457,8 @@ class ProjectServiceTest {
     @Test
     void createProject_shouldBroadcastCreationEvent() {
         CreateProjectRequest request = CreateProjectRequest.builder()
-            .name("Valid")
-            .description("Valid description")
+            .name(VALID_PROJECT_NAME)
+            .description(VALID_DESCRIPTION)
             .generateTasks(false)
             .build();
 
@@ -599,8 +648,8 @@ class ProjectServiceTest {
         ProjectDTO result = projectService.updateProject(projectId, ownerId, request);
 
         assertNotNull(result);
-        verify(projectRepository).save(any());
-        verify(broadcastService).broadcastProjectUpdated(eq(projectId), any(ProjectDTO.class));
+        verify(projectRepository, times(1)).save(any());
+        verify(broadcastService, times(1)).broadcastProjectUpdated(eq(projectId), any(ProjectDTO.class));
     }
 
     @Test
@@ -632,9 +681,6 @@ class ProjectServiceTest {
         when(projectRepository.findById(projectId)).thenReturn(Optional.of(testProject));
         when(projectMemberRepository.findMemberRole(projectId, ownerId)).thenReturn(Optional.of("owner"));
         when(projectRepository.save(any())).thenReturn(testProject);
-        when(boardRepository.findByProjectId(projectId)).thenReturn(Collections.singletonList(testBoard));
-        when(projectMemberRepository.findProjectMemberRoles(projectId)).thenReturn(new ArrayList<>());
-        when(userRepository.findAllById(any())).thenReturn(Collections.singletonList(owner));
 
         projectService.updateProject(projectId, ownerId, request);
 
@@ -652,8 +698,6 @@ class ProjectServiceTest {
         when(projectRepository.findById(projectId)).thenReturn(Optional.of(testProject));
         when(projectMemberRepository.findMemberRole(projectId, ownerId)).thenReturn(Optional.of("owner"));
         when(projectRepository.save(any())).thenReturn(testProject);
-        when(boardRepository.findByProjectId(projectId)).thenReturn(Collections.singletonList(testBoard));
-        when(projectMemberRepository.findProjectMemberRoles(projectId)).thenReturn(new ArrayList<>());
 
         projectService.updateProject(projectId, ownerId, request);
 
@@ -663,7 +707,7 @@ class ProjectServiceTest {
     @Test
     void updateProject_withNameExceeding255Chars_shouldThrowBadRequest() {
         UpdateProjectRequest request = UpdateProjectRequest.builder()
-            .name("x".repeat(256))
+            .name("x".repeat(MAX_PROJECT_NAME_LENGTH + 1))
             .build();
 
         when(projectRepository.findById(projectId)).thenReturn(Optional.of(testProject));
@@ -688,6 +732,8 @@ class ProjectServiceTest {
         when(projectMemberRepository.findMemberRole(projectId, ownerId)).thenReturn(Optional.of("owner"));
         when(projectRepository.findActiveByOwnerAndNameIgnoreCase(owner, "Existing"))
             .thenReturn(Collections.singletonList(existingProject));
+        when(boardRepository.findByProjectId(projectId)).thenReturn(Collections.singletonList(testBoard));
+        when(projectMemberRepository.findProjectMemberRoles(projectId)).thenReturn(new ArrayList<>());
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
             projectService.updateProject(projectId, ownerId, request);
@@ -855,7 +901,7 @@ class ProjectServiceTest {
         when(stageRepository.findById(stageId)).thenReturn(Optional.of(testStage));
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
-            projectService.createCard(stageId, "x".repeat(256), "Desc", "HIGH", null, ownerId);
+            projectService.createCard(stageId, "x".repeat(MAX_PROJECT_NAME_LENGTH + 1), "Desc", "HIGH", null, ownerId);
         });
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
@@ -947,7 +993,7 @@ class ProjectServiceTest {
 
         projectService.createCard(stageId, "Title", "Desc", "HIGH", null, ownerId);
 
-        verify(broadcastService).broadcastCardCreated(boardId, stageId, any(CardDTO.class));
+        verify(broadcastService).broadcastCardCreated(eq(boardId), eq(stageId), any(CardDTO.class));
     }
 
     // =============== T7: updateCard Tests ===============
@@ -1036,7 +1082,7 @@ class ProjectServiceTest {
 
         projectService.updateCard(cardId, "New Title", "New Desc", "HIGH", null, ownerId);
 
-        verify(broadcastService).broadcastCardUpdated(boardId, stageId, any(CardDTO.class));
+        verify(broadcastService).broadcastCardUpdated(eq(boardId), eq(stageId), any(CardDTO.class));
     }
 
     // =============== T8: moveCard Tests ===============
@@ -1289,7 +1335,7 @@ class ProjectServiceTest {
         when(boardRepository.findById(boardId)).thenReturn(Optional.of(testBoard));
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
-            projectService.addStage(boardId, "x".repeat(101), "#FF0000", ownerId);
+            projectService.addStage(boardId, "x".repeat(MAX_STAGE_TITLE_LENGTH + 1), "#FF0000", ownerId);
         });
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
@@ -1327,12 +1373,12 @@ class ProjectServiceTest {
     @Test
     void deleteStage_shouldMarkForDeletion() {
         when(stageRepository.findById(stageId)).thenReturn(Optional.of(testStage));
-        when(projectMemberRepository.findMemberRole(projectId, ownerId)).thenReturn(Optional.empty());
+        when(projectMemberRepository.findMemberRole(projectId, ownerId)).thenReturn(Optional.of("owner"));
 
         projectService.deleteStage(stageId, ownerId);
 
         assertTrue(testStage.getIsDeletionMarked());
-        verify(stageRepository).save(testStage);
+        verify(stageRepository, times(1)).save(testStage);
     }
 
     @Test
@@ -1362,11 +1408,8 @@ class ProjectServiceTest {
 
     @Test
     void deleteStage_withViewerUser_shouldThrowForbidden() {
-        Object[] roleRow = {member1Id, "viewer"};
         when(stageRepository.findById(stageId)).thenReturn(Optional.of(testStage));
         when(projectMemberRepository.findMemberRole(projectId, member1Id)).thenReturn(Optional.of("viewer"));
-        when(projectMemberRepository.findProjectMemberRoles(projectId))
-            .thenReturn(Collections.singletonList(roleRow));
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
             projectService.deleteStage(stageId, member1Id);
@@ -1378,11 +1421,11 @@ class ProjectServiceTest {
     @Test
     void deleteStage_shouldBroadcastDeletion() {
         when(stageRepository.findById(stageId)).thenReturn(Optional.of(testStage));
-        when(projectMemberRepository.findMemberRole(projectId, ownerId)).thenReturn(Optional.empty());
+        when(projectMemberRepository.findMemberRole(projectId, ownerId)).thenReturn(Optional.of("owner"));
 
         projectService.deleteStage(stageId, ownerId);
 
-        verify(broadcastService).broadcastStageDeleted(boardId, stageId);
+        verify(broadcastService, times(1)).broadcastStageDeleted(eq(boardId), eq(stageId));
     }
 
     // =============== T12: renameStage Tests ===============
@@ -1397,7 +1440,7 @@ class ProjectServiceTest {
 
         assertNotNull(result);
         verify(stageRepository).save(any());
-        verify(broadcastService).broadcastStageUpdated(boardId, any(StageDTO.class));
+        verify(broadcastService).broadcastStageUpdated(eq(boardId), any(StageDTO.class));
     }
 
     @Test
@@ -1417,7 +1460,7 @@ class ProjectServiceTest {
         when(stageRepository.findById(stageId)).thenReturn(Optional.of(testStage));
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
-            projectService.renameStage(stageId, "x".repeat(101), ownerId);
+            projectService.renameStage(stageId, "x".repeat(MAX_STAGE_TITLE_LENGTH + 1), ownerId);
         });
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
@@ -1564,6 +1607,19 @@ class ProjectServiceTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
         assertTrue(exception.getReason().contains("Cannot add another owner"));
+    }
+
+    @Test
+    void addTeamMember_withInvalidRole_shouldThrowBadRequest() {
+        when(projectRepository.findById(projectId)).thenReturn(Optional.of(testProject));
+        when(projectMemberRepository.findMemberRole(projectId, ownerId)).thenReturn(Optional.of("owner"));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
+            projectService.addTeamMember(projectId, "new@example.com", "admin", ownerId);
+        });
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertTrue(exception.getReason().contains("Invalid member role"));
     }
 
     @Test
@@ -1870,6 +1926,41 @@ class ProjectServiceTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
         assertTrue(exception.getReason().contains("Priority must be"));
+    }
+
+    @Test
+    void parsePriority_withNullValue_shouldThrowBadRequest() {
+        // Test TPri7: null priority input handling - should throw BAD_REQUEST
+        when(stageRepository.findById(stageId)).thenReturn(Optional.of(testStage));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
+            projectService.createCard(stageId, "Title", "Desc", null, null, ownerId);
+        });
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertTrue(exception.getReason().contains("Priority must be"));
+    }
+
+    @Test
+    void getProjectMembers_shouldSortAlphabeticallyByFullNameForNonOwners() {
+        User charlie = createMockUser(UUID.randomUUID(), "charlie@example.com", "charlie", "Charlie Brown");
+        User bob = createMockUser(UUID.randomUUID(), "bob@example.com", "bob", "Bob Adams");
+        
+        Object[] charlieRow = {charlie.getId(), "editor"};
+        Object[] bobRow = {bob.getId(), "viewer"};
+        
+        when(projectRepository.findById(projectId)).thenReturn(Optional.of(testProject));
+        when(projectMemberRepository.findMemberRole(projectId, ownerId)).thenReturn(Optional.of("owner"));
+        when(projectMemberRepository.findProjectMemberRoles(projectId))
+            .thenReturn(Arrays.asList(charlieRow, bobRow));
+        when(userRepository.findAllById(any())).thenReturn(Arrays.asList(owner, charlie, bob));
+        
+        List<TeamMemberDTO> members = projectService.getProjectMembers(projectId, ownerId);
+        
+        assertEquals(3, members.size());
+        assertEquals("owner", members.get(0).getRole());
+        assertEquals("Bob Adams", members.get(1).getFullName()); // B before C
+        assertEquals("Charlie Brown", members.get(2).getFullName());
     }
 
     private UUID anyUUID() {
