@@ -614,7 +614,10 @@ public class ProjectService {
             .collect(Collectors.toMap(User::getId, user -> user));
 
         Map<UUID, User> participants = new LinkedHashMap<>();
-        participants.put(project.getOwner().getId(), usersById.get(project.getOwner().getId()));
+        User owner = usersById.get(project.getOwner().getId());
+        if (owner != null) {
+            participants.put(project.getOwner().getId(), owner);
+        }
 
         for (UUID memberId : memberIds) {
             if (memberId.equals(project.getOwner().getId())) {
