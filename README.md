@@ -198,6 +198,8 @@ Run `npm install` in the repository root to install all frontend dependencies fr
 #### Install and run tests
 From repository root:
 
+Windows (PowerShell), macOS, and Linux:
+
 ```bash
 npm install
 npm run test
@@ -217,6 +219,8 @@ Target files:
 - US3: `src/app/pages/MeetingChanges.tsx`
 
 Run from repository root:
+
+Windows (PowerShell), macOS, and Linux:
 
 ```bash
 npm run test -- src/app/pages/__tests__/MeetingSummary.test.tsx src/app/pages/__tests__/MeetingChanges.test.tsx src/app/pages/__tests__/KanbanBoard.test.tsx --coverage --collectCoverageFrom="src/app/pages/KanbanBoard.tsx" --collectCoverageFrom="src/app/pages/MeetingSummary.tsx" --collectCoverageFrom="src/app/pages/MeetingChanges.tsx"
@@ -243,6 +247,8 @@ Run Maven once to resolve all backend dependencies defined in `backend/pom.xml`,
 #### Install dependencies and run tests
 From `backend` folder:
 
+Windows (PowerShell), macOS, and Linux:
+
 ```bash
 mvn clean install -DskipTests
 mvn test
@@ -250,14 +256,30 @@ mvn test
 
 Run backend tests with coverage:
 
+Windows (PowerShell), macOS, and Linux:
+
 ```bash
 mvn clean test jacoco:report
 ```
 
 Open JaCoCo HTML report:
 
-```bash
+Windows (PowerShell):
+
+```powershell
 start target/site/jacoco/index.html
+```
+
+macOS:
+
+```bash
+open target/site/jacoco/index.html
+```
+
+Linux:
+
+```bash
+xdg-open target/site/jacoco/index.html
 ```
 
 Coverage artifacts:
@@ -272,6 +294,14 @@ Target files:
 - U3: `backend/src/main/java/com/flowboard/service/ChangeApplicationService.java`
 
 Run from backend folder:
+
+Windows PowerShell:
+
+```powershell
+mvn "-Dtest=ProjectServiceTest,SummaryServiceTest,SummaryServiceUserStory2Test,ChangeApplicationServiceUserStory3Test" test jacoco:report
+```
+
+macOS/Linux (bash/zsh):
 
 ```bash
 mvn -Dtest=ProjectServiceTest,SummaryServiceTest,SummaryServiceUserStory2Test,ChangeApplicationServiceUserStory3Test test jacoco:report
@@ -291,6 +321,13 @@ $csv |
     [PSCustomObject]@{ Class = $_.CLASS; LineCoveragePct = $pct }
   } |
   Format-Table -AutoSize
+```
+
+Print coverage for only those 3 backend files (macOS/Linux shell):
+
+```bash
+awk -F, 'BEGIN { OFS="," } NR==1 || ($2=="com/flowboard/service" && ($3=="ProjectService" || $3=="SummaryService" || $3=="ChangeApplicationService")) { print }' target/site/jacoco/jacoco.csv | \
+awk -F, 'NR==1 { next } { total=$8+$9; pct=(total>0)?(100*$9/total):0; printf "%s %.2f%%\n", $3, pct }'
 ```
 
 Current backend results for these files:
