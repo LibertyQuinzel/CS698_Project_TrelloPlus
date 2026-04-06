@@ -34,7 +34,8 @@ export default defineConfig({
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
-      'src/MeetingSummary.test.tsx',
+      'src/app/pages/__tests__/MeetingSummary.test.tsx',
+      'src/app/pages/__tests__/MeetingChanges.test.tsx',
       'src/app/pages/__tests__/KanbanBoard.test.tsx',
     ],
   },

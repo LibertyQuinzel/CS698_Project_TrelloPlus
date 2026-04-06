@@ -1,10 +1,10 @@
 import React from 'react';
-import { render, screen, waitFor, within, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router';
 import { toast } from 'sonner';
-import { MeetingSummary } from './app/pages/MeetingSummary';
-import { apiService } from './app/services/api';
+import { MeetingSummary } from '../MeetingSummary';
+import { apiService } from '../../services/api';
 
 // Mock react-router
 jest.mock('react-router', () => ({
@@ -24,7 +24,7 @@ jest.mock('sonner', () => ({
 }));
 
 // Mock api service
-jest.mock('./app/services/api', () => ({
+jest.mock('../../services/api', () => ({
   apiService: {
     getMeeting: jest.fn(),
     getSummaryByMeeting: jest.fn(),
@@ -292,8 +292,7 @@ describe('MeetingSummary Component', () => {
 
     test('5. User is owner - isProjectOwner=true', async () => {
       setupDefaultMocks();
-      
-      const user = userEvent.setup();
+
       renderWithRouter(<MeetingSummary />);
       
       await waitFor(() => {
@@ -812,7 +811,6 @@ describe('MeetingSummary Component', () => {
       });
       
       // Find all Add buttons and click the one in the Action Items section
-      const addButtons = screen.getAllByRole('button', { name: /add/i });
       // The Action Items Add button comes after the Decisions Add button in DOM order
       // or we can find by looking at the parent context
       const actionItemsHeading = screen.getByText('Action Items');
@@ -905,7 +903,6 @@ describe('MeetingSummary Component', () => {
       });
       
       // Click Add button
-      const addButtons = screen.getAllByRole('button', { name: /add/i });
       const actionItemsHeading = screen.getByText('Action Items');
       const actionItemsSection = actionItemsHeading.closest('div[class*="bg-white"]');
       const addButton = actionItemsSection?.querySelector('button');
@@ -935,7 +932,6 @@ describe('MeetingSummary Component', () => {
       });
       
       // Click Add button
-      const addButtons = screen.getAllByRole('button', { name: /add/i });
       const actionItemsHeading = screen.getByText('Action Items');
       const actionItemsSection = actionItemsHeading.closest('div[class*="bg-white"]');
       const addButton = actionItemsSection?.querySelector('button');

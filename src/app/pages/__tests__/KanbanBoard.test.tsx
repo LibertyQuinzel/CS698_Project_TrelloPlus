@@ -154,7 +154,7 @@ function setupProjectStoreMock(projects = [mockProject], actions = mockProjectSt
 
 function getAddColumnSubmitButton() {
   const buttons = screen.getAllByRole('button', { name: /add/i });
-  return buttons.find((button) => button.textContent?.trim() === 'Add') as HTMLButtonElement;
+  return buttons.find((button: HTMLElement) => button.textContent?.trim() === 'Add') as HTMLButtonElement;
 }
 
 describe('KanbanBoard', () => {
@@ -1195,7 +1195,6 @@ describe('KanbanBoard', () => {
 
     test('5.7 - should add column with color cycling', async () => {
       // Test the color cycling by adding multiple columns
-      let columnIndex = 0;
       const colors = ['bg-purple-100', 'bg-pink-100', 'bg-teal-100', 'bg-orange-100', 'bg-indigo-100', 'bg-cyan-100'];
 
       // First column should use index 3 % 6 = bg-orange-100 (since project already has 3 columns)

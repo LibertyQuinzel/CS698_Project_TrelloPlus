@@ -210,7 +210,7 @@ npm run test:watch      # watch mode
 npm run test:coverage   # full frontend coverage
 ```
 
-#### Frontend targeted coverage (US files only)
+#### Frontend targeted coverage
 Target files:
 - US1: `src/app/pages/KanbanBoard.tsx`
 - US2: `src/app/pages/MeetingSummary.tsx`
@@ -219,7 +219,7 @@ Target files:
 Run from repository root:
 
 ```bash
-npm run test -- src/MeetingSummary.test.tsx src/app/pages/MeetingChanges.test.tsx src/app/pages/__tests__/KanbanBoard.test.tsx --coverage --collectCoverageFrom="src/app/pages/KanbanBoard.tsx" --collectCoverageFrom="src/app/pages/MeetingSummary.tsx" --collectCoverageFrom="src/app/pages/MeetingChanges.tsx"
+npm run test -- src/app/pages/__tests__/MeetingSummary.test.tsx src/app/pages/__tests__/MeetingChanges.test.tsx src/app/pages/__tests__/KanbanBoard.test.tsx --coverage --collectCoverageFrom="src/app/pages/KanbanBoard.tsx" --collectCoverageFrom="src/app/pages/MeetingSummary.tsx" --collectCoverageFrom="src/app/pages/MeetingChanges.tsx"
 ```
 
 ### Backend Testing
@@ -265,7 +265,7 @@ Coverage artifacts:
 - CSV report: `backend/target/site/jacoco/jacoco.csv`
 - Test reports: `backend/target/surefire-reports`
 
-#### Backend targeted coverage (U files only)
+#### Backend targeted coverage
 Target files:
 - U1: `backend/src/main/java/com/flowboard/service/ProjectService.java`
 - U2: `backend/src/main/java/com/flowboard/service/SummaryService.java`

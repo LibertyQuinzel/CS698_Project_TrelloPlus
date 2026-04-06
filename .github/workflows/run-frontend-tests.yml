@@ -30,8 +30,8 @@ jobs:
       - name: Run frontend tests with targeted coverage
         run: >-
           npm run test --
-          src/MeetingSummary.test.tsx
-          src/app/pages/MeetingChanges.test.tsx
+          src/app/pages/__tests__/MeetingSummary.test.tsx
+          src/app/pages/__tests__/MeetingChanges.test.tsx
           src/app/pages/__tests__/KanbanBoard.test.tsx
           --coverage
           --coverageReporters=text

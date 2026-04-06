@@ -1,5 +1,16 @@
-import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react';
+
+declare const require: (id: string) => any;
+
+type RootHandle = {
+  render: (node: any) => void;
+  unmount: () => void;
+};
+
+function createRoot(container: HTMLElement): RootHandle {
+  const reactDomClient = require('react-dom/client');
+  return reactDomClient.createRoot(container) as RootHandle;
+}
 
 const mockNavigate = jest.fn();
 const mockSetProjects = jest.fn();
@@ -28,16 +39,16 @@ jest.mock('react-router', () => ({
   useParams: () => ({ meetingId: 'meeting-1' }),
 }));
 
-jest.mock('../components/ChangeDetailModal', () => ({
+jest.mock('../../components/ChangeDetailModal', () => ({
   ChangeDetailModal: () => <div data-testid="change-detail-modal" />,
 }));
 
-jest.mock('../store/projectStore', () => ({
+jest.mock('../../store/projectStore', () => ({
   useProjectStore: (selector: (state: { setProjects: typeof mockSetProjects }) => unknown) =>
     selector({ setProjects: mockSetProjects }),
 }));
 
-jest.mock('../services/api', () => ({
+jest.mock('../../services/api', () => ({
   apiService: {
     getMeeting: mockGetMeeting,
     listChanges: mockListChanges,
@@ -228,8 +239,8 @@ async function flush() {
   });
 }
 
-async function renderWithRoot(root: Root) {
-  const { MeetingChanges } = require('./MeetingChanges');
+async function renderWithRoot(root: RootHandle) {
+  const { MeetingChanges } = require('../MeetingChanges');
   await act(async () => {
     root.render(<MeetingChanges />);
   });
