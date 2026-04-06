@@ -42,6 +42,9 @@ class ChangeApprovalServiceUserStory3Test {
     @Mock
     private ChangeAuditEntryRepository changeAuditEntryRepository;
 
+    @Mock
+    private BoardBroadcastService boardBroadcastService;
+
     private ChangeApprovalService service;
 
     private UUID changeId;
@@ -59,7 +62,8 @@ class ChangeApprovalServiceUserStory3Test {
             changeApprovalRequestRepository,
             changeApprovalResponseRepository,
             meetingMemberRepository,
-            changeAuditEntryRepository
+            changeAuditEntryRepository,
+            boardBroadcastService
         );
 
         changeId = UUID.randomUUID();

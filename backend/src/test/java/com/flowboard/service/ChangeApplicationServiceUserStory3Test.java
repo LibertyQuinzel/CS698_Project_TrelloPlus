@@ -50,6 +50,9 @@ class ChangeApplicationServiceUserStory3Test {
     @Mock
     private ChangeAuditEntryRepository changeAuditEntryRepository;
 
+    @Mock
+    private BoardBroadcastService boardBroadcastService;
+
     private ChangeApplicationService service;
 
     private User owner;
@@ -68,7 +71,8 @@ class ChangeApplicationServiceUserStory3Test {
             projectMemberRepository,
             changeSnapshotRepository,
             changeAuditEntryRepository,
-            new ObjectMapper()
+            new ObjectMapper(),
+            boardBroadcastService
         );
 
         owner = User.builder()

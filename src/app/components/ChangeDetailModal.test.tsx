@@ -1,11 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react';
 import { ChangeDetailModal } from './ChangeDetailModal';
 import { useProjectStore } from '../store/projectStore';
 import type { ChangeRequest } from '../store/changeStore';
 
-vi.mock('./ui/dialog', () => ({
+jest.mock('./ui/dialog', () => ({
   Dialog: ({ children }: { children: any }) => <div>{children}</div>,
   DialogContent: ({ children }: { children: any }) => <div>{children}</div>,
   DialogHeader: ({ children }: { children: any }) => <div>{children}</div>,

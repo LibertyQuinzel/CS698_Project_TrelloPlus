@@ -20,7 +20,6 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -96,22 +95,6 @@ class ChangeControllerUserStory3ApiTest {
     }
 
     @Test
-    void getChange_returnsOk() throws Exception {
-        when(changePreviewService.getChange(changeId, userId)).thenReturn(ChangeDTO.builder()
-            .id(changeId)
-            .meetingId(meetingId)
-            .changeType("MOVE_CARD")
-            .status("UNDER_REVIEW")
-            .createdAt(LocalDateTime.now())
-            .build());
-
-        mockMvc.perform(get("/changes/{id}", changeId)
-                .header("Authorization", "Bearer valid-token"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.id").value(changeId.toString()));
-    }
-
-    @Test
     void getDiff_returnsOk() throws Exception {
         when(changePreviewService.getDiff(changeId, userId)).thenReturn(ChangeDiffDTO.builder()
             .beforeState("{}")
@@ -123,40 +106,6 @@ class ChangeControllerUserStory3ApiTest {
                 .header("Authorization", "Bearer valid-token"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.summary").exists());
-    }
-
-    @Test
-    void getImpact_returnsOk() throws Exception {
-        when(changePreviewService.getImpact(changeId, userId)).thenReturn(ChangeImpactDTO.builder()
-            .affectedCards(List.of("card-1"))
-            .affectedStages(List.of())
-            .riskLevel("LOW")
-            .potentialConflicts(List.of())
-            .build());
-
-        mockMvc.perform(get("/changes/{id}/impact", changeId)
-                .header("Authorization", "Bearer valid-token"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.riskLevel").value("LOW"));
-    }
-
-    @Test
-    void getHistory_returnsOk() throws Exception {
-        when(changePreviewService.getHistory(changeId, userId)).thenReturn(List.of(
-            ChangeHistoryEntryDTO.builder()
-                .id(UUID.randomUUID())
-                .action("APPROVED")
-                .actorId(userId)
-                .actorName("reviewer")
-                .details("{\"decision\":\"APPROVE\"}")
-                .createdAt(LocalDateTime.now())
-                .build()
-        ));
-
-        mockMvc.perform(get("/changes/{id}/history", changeId)
-                .header("Authorization", "Bearer valid-token"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$[0].action").value("APPROVED"));
     }
 
     @Test

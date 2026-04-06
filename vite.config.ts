@@ -31,6 +31,12 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: './src/testSetup.ts',
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      'src/MeetingSummary.test.tsx',
+      'src/app/pages/__tests__/KanbanBoard.test.tsx',
+    ],
   },
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.

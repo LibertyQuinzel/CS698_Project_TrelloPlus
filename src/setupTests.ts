@@ -1,6 +1,8 @@
 import '@testing-library/jest-dom';
 import { TextEncoder, TextDecoder } from 'util';
 
+;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
 global.TextEncoder = TextEncoder as any;
 global.TextDecoder = TextDecoder as any;
 

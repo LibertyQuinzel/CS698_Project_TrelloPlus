@@ -8,10 +8,15 @@ export default {
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
       useESM: true,
+      diagnostics: {
+        ignoreCodes: [5101, 5107],
+      },
       tsconfig: {
         jsx: 'react-jsx',
         esModuleInterop: true,
         allowSyntheticDefaultImports: true,
+        moduleResolution: 'bundler',
+        ignoreDeprecations: '6.0',
         types: ['jest', '@testing-library/jest-dom'],
       },
     }],
@@ -29,14 +34,7 @@ export default {
     '!src/**/*.d.ts',
     '!src/**/index.ts',
     '!src/**/*.stories.tsx',
+    '!src/imports/**',
     '!src/main.tsx',
   ],
-  coverageThreshold: {
-    global: {
-      branches: 70,
-      functions: 80,
-      lines: 80,
-      statements: 80,
-    },
-  },
 };

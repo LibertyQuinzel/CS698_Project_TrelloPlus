@@ -1,41 +1,49 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react';
-import { MeetingChanges } from './MeetingChanges';
 
-const pageMocks = vi.hoisted(() => ({
-  navigate: vi.fn(),
-  setProjects: vi.fn(),
-  getMeeting: vi.fn(),
-  listChanges: vi.fn(),
-  getUserProjects: vi.fn(),
-  getProject: vi.fn(),
-  applyChange: vi.fn(),
-  toastSuccess: vi.fn(),
-  toastError: vi.fn(),
-}));
+const mockNavigate = jest.fn();
+const mockSetProjects = jest.fn();
+const mockGetMeeting = jest.fn();
+const mockListChanges = jest.fn();
+const mockGetUserProjects = jest.fn();
+const mockGetProject = jest.fn();
+const mockApplyChange = jest.fn();
+const mockToastSuccess = jest.fn();
+const mockToastError = jest.fn();
 
-vi.mock('react-router', () => ({
-  useNavigate: () => pageMocks.navigate,
+const mockPage = {
+  navigate: mockNavigate,
+  setProjects: mockSetProjects,
+  getMeeting: mockGetMeeting,
+  listChanges: mockListChanges,
+  getUserProjects: mockGetUserProjects,
+  getProject: mockGetProject,
+  applyChange: mockApplyChange,
+  toastSuccess: mockToastSuccess,
+  toastError: mockToastError,
+};
+
+jest.mock('react-router', () => ({
+  useNavigate: () => mockNavigate,
   useParams: () => ({ meetingId: 'meeting-1' }),
 }));
 
-vi.mock('../components/ChangeDetailModal', () => ({
+jest.mock('../components/ChangeDetailModal', () => ({
   ChangeDetailModal: () => <div data-testid="change-detail-modal" />,
 }));
 
-vi.mock('../store/projectStore', () => ({
-  useProjectStore: (selector: (state: { setProjects: typeof pageMocks.setProjects }) => unknown) =>
-    selector({ setProjects: pageMocks.setProjects }),
+jest.mock('../store/projectStore', () => ({
+  useProjectStore: (selector: (state: { setProjects: typeof mockSetProjects }) => unknown) =>
+    selector({ setProjects: mockSetProjects }),
 }));
 
-vi.mock('../services/api', () => ({
+jest.mock('../services/api', () => ({
   apiService: {
-    getMeeting: pageMocks.getMeeting,
-    listChanges: pageMocks.listChanges,
-    getUserProjects: pageMocks.getUserProjects,
-    getProject: pageMocks.getProject,
-    applyChange: pageMocks.applyChange,
+    getMeeting: mockGetMeeting,
+    listChanges: mockListChanges,
+    getUserProjects: mockGetUserProjects,
+    getProject: mockGetProject,
+    applyChange: mockApplyChange,
   },
   mapProjectResponseToProject: (project: any) => ({
     id: project.id,
@@ -49,10 +57,10 @@ vi.mock('../services/api', () => ({
   }),
 }));
 
-vi.mock('sonner', () => ({
+jest.mock('sonner', () => ({
   toast: {
-    success: pageMocks.toastSuccess,
-    error: pageMocks.toastError,
+    success: mockToastSuccess,
+    error: mockToastError,
   },
 }));
 
@@ -221,6 +229,7 @@ async function flush() {
 }
 
 async function renderWithRoot(root: Root) {
+  const { MeetingChanges } = require('./MeetingChanges');
   await act(async () => {
     root.render(<MeetingChanges />);
   });
@@ -234,15 +243,15 @@ function findButton(container: HTMLElement, label: string) {
 }
 
 beforeEach(() => {
-  pageMocks.navigate.mockReset();
-  pageMocks.setProjects.mockReset();
-  pageMocks.getMeeting.mockReset();
-  pageMocks.listChanges.mockReset();
-  pageMocks.getUserProjects.mockReset();
-  pageMocks.getProject.mockReset();
-  pageMocks.applyChange.mockReset();
-  pageMocks.toastSuccess.mockReset();
-  pageMocks.toastError.mockReset();
+  mockPage.navigate.mockReset();
+  mockPage.setProjects.mockReset();
+  mockPage.getMeeting.mockReset();
+  mockPage.listChanges.mockReset();
+  mockPage.getUserProjects.mockReset();
+  mockPage.getProject.mockReset();
+  mockPage.applyChange.mockReset();
+  mockPage.toastSuccess.mockReset();
+  mockPage.toastError.mockReset();
   localStorage.clear();
   localStorage.setItem('user', JSON.stringify({ id: 'owner-1', username: 'owner', role: 'owner' }));
 });
@@ -256,10 +265,10 @@ describe('MeetingChanges', () => {
     const container = createContainer();
     const root = createRoot(container);
 
-    pageMocks.getMeeting.mockResolvedValue(createMeetingResponse());
-    pageMocks.listChanges.mockResolvedValue([]);
-    pageMocks.getUserProjects.mockResolvedValue([createProjectResponse()]);
-    pageMocks.getProject.mockResolvedValue(createProjectResponse());
+    mockPage.getMeeting.mockResolvedValue(createMeetingResponse());
+    mockPage.listChanges.mockResolvedValue([]);
+    mockPage.getUserProjects.mockResolvedValue([createProjectResponse()]);
+    mockPage.getProject.mockResolvedValue(createProjectResponse());
 
     await renderWithRoot(root);
     await flush();
@@ -279,10 +288,10 @@ describe('MeetingChanges', () => {
     const root = createRoot(container);
 
     localStorage.setItem('user', JSON.stringify({ id: 'someone-else', username: 'guest', role: 'member' }));
-    pageMocks.getMeeting.mockResolvedValue(createMeetingResponse());
-    pageMocks.listChanges.mockResolvedValue([createChange()]);
-    pageMocks.getUserProjects.mockResolvedValue([createProjectResponse()]);
-    pageMocks.getProject.mockResolvedValue(createReadOnlyProjectResponse());
+    mockPage.getMeeting.mockResolvedValue(createMeetingResponse());
+    mockPage.listChanges.mockResolvedValue([createChange()]);
+    mockPage.getUserProjects.mockResolvedValue([createProjectResponse()]);
+    mockPage.getProject.mockResolvedValue(createReadOnlyProjectResponse());
 
     await renderWithRoot(root);
     await flush();
@@ -302,11 +311,11 @@ describe('MeetingChanges', () => {
     const container = createContainer();
     const root = createRoot(container);
 
-    pageMocks.getMeeting.mockResolvedValue(createMeetingResponse());
-    pageMocks.listChanges.mockResolvedValue([createChange()]);
-    pageMocks.getUserProjects.mockResolvedValue([createProjectResponse()]);
-    pageMocks.getProject.mockResolvedValue(createProjectResponse());
-    pageMocks.applyChange.mockResolvedValue({ message: 'Change applied to board' });
+    mockPage.getMeeting.mockResolvedValue(createMeetingResponse());
+    mockPage.listChanges.mockResolvedValue([createChange()]);
+    mockPage.getUserProjects.mockResolvedValue([createProjectResponse()]);
+    mockPage.getProject.mockResolvedValue(createProjectResponse());
+    mockPage.applyChange.mockResolvedValue({ message: 'Change applied to board' });
 
     await renderWithRoot(root);
     await flush();
@@ -326,10 +335,10 @@ describe('MeetingChanges', () => {
     await flush();
     await flush();
 
-    expect(pageMocks.applyChange).toHaveBeenCalledWith('change-1');
-    expect(pageMocks.getUserProjects).toHaveBeenCalled();
-    expect(pageMocks.getProject).toHaveBeenCalledWith('project-1');
-    expect(pageMocks.toastSuccess).toHaveBeenCalledWith('Change applied to board');
+    expect(mockPage.applyChange).toHaveBeenCalledWith('change-1');
+    expect(mockPage.getUserProjects).toHaveBeenCalled();
+    expect(mockPage.getProject).toHaveBeenCalledWith('project-1');
+    expect(mockPage.toastSuccess).toHaveBeenCalledWith('Change applied to board');
     expect(container.textContent).toContain('Applied');
 
     await act(async () => {
@@ -342,11 +351,11 @@ describe('MeetingChanges', () => {
     const container = createContainer();
     const root = createRoot(container);
 
-    pageMocks.getMeeting.mockResolvedValue(createMeetingResponse());
-    pageMocks.listChanges.mockResolvedValue([createStaleChange()]);
-    pageMocks.getUserProjects.mockResolvedValue([createProjectResponse([])]);
-    pageMocks.getProject.mockResolvedValue(createProjectResponse([]));
-    pageMocks.applyChange.mockResolvedValue({ message: 'Should not be used' });
+    mockPage.getMeeting.mockResolvedValue(createMeetingResponse());
+    mockPage.listChanges.mockResolvedValue([createStaleChange()]);
+    mockPage.getUserProjects.mockResolvedValue([createProjectResponse([])]);
+    mockPage.getProject.mockResolvedValue(createProjectResponse([]));
+    mockPage.applyChange.mockResolvedValue({ message: 'Should not be used' });
 
     await renderWithRoot(root);
     await flush();
@@ -363,7 +372,7 @@ describe('MeetingChanges', () => {
       staleButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
-    expect(pageMocks.applyChange).not.toHaveBeenCalled();
+    expect(mockPage.applyChange).not.toHaveBeenCalled();
 
     await act(async () => {
       root.unmount();
@@ -375,11 +384,11 @@ describe('MeetingChanges', () => {
     const container = createContainer();
     const root = createRoot(container);
 
-    pageMocks.getMeeting.mockResolvedValue(createMeetingResponse());
-    pageMocks.listChanges.mockResolvedValue([createChange()]);
-    pageMocks.getUserProjects.mockResolvedValue([createProjectResponse()]);
-    pageMocks.getProject.mockResolvedValue(createProjectResponse());
-    pageMocks.applyChange.mockRejectedValue(new Error('Card not found: card-1'));
+    mockPage.getMeeting.mockResolvedValue(createMeetingResponse());
+    mockPage.listChanges.mockResolvedValue([createChange()]);
+    mockPage.getUserProjects.mockResolvedValue([createProjectResponse()]);
+    mockPage.getProject.mockResolvedValue(createProjectResponse());
+    mockPage.applyChange.mockRejectedValue(new Error('Card not found: card-1'));
 
     await renderWithRoot(root);
     await flush();
@@ -394,7 +403,7 @@ describe('MeetingChanges', () => {
 
     await flush();
 
-    expect(pageMocks.toastError).toHaveBeenCalledWith(
+    expect(mockPage.toastError).toHaveBeenCalledWith(
       'This change references a card that no longer exists. Regenerate the summary to refresh stale changes.'
     );
 
@@ -424,11 +433,11 @@ describe('MeetingChanges', () => {
       }),
     });
 
-    pageMocks.getMeeting.mockResolvedValue(createMeetingResponse());
-    pageMocks.listChanges.mockResolvedValue([stageMissingChange]);
-    pageMocks.getUserProjects.mockResolvedValue([createProjectResponse()]);
-    pageMocks.getProject.mockResolvedValue(createProjectResponse());
-    pageMocks.applyChange.mockRejectedValue(new Error('Stage not found: stage-1'));
+    mockPage.getMeeting.mockResolvedValue(createMeetingResponse());
+    mockPage.listChanges.mockResolvedValue([stageMissingChange]);
+    mockPage.getUserProjects.mockResolvedValue([createProjectResponse()]);
+    mockPage.getProject.mockResolvedValue(createProjectResponse());
+    mockPage.applyChange.mockRejectedValue(new Error('Stage not found: stage-1'));
 
     await renderWithRoot(root);
     await flush();
@@ -443,7 +452,7 @@ describe('MeetingChanges', () => {
 
     await flush();
 
-    expect(pageMocks.toastError).toHaveBeenCalledWith(
+    expect(mockPage.toastError).toHaveBeenCalledWith(
       'This change references a column that no longer exists. Regenerate the summary to refresh stale changes.'
     );
 
@@ -457,11 +466,11 @@ describe('MeetingChanges', () => {
     const container = createContainer();
     const root = createRoot(container);
 
-    pageMocks.getMeeting.mockResolvedValue(createMeetingResponse());
-    pageMocks.listChanges.mockResolvedValue([createChange()]);
-    pageMocks.getUserProjects.mockResolvedValue([createProjectResponse()]);
-    pageMocks.getProject.mockResolvedValue(createProjectResponse());
-    pageMocks.applyChange.mockRejectedValue(new Error('Backend timeout'));
+    mockPage.getMeeting.mockResolvedValue(createMeetingResponse());
+    mockPage.listChanges.mockResolvedValue([createChange()]);
+    mockPage.getUserProjects.mockResolvedValue([createProjectResponse()]);
+    mockPage.getProject.mockResolvedValue(createProjectResponse());
+    mockPage.applyChange.mockRejectedValue(new Error('Backend timeout'));
 
     await renderWithRoot(root);
     await flush();
@@ -476,7 +485,7 @@ describe('MeetingChanges', () => {
 
     await flush();
 
-    expect(pageMocks.toastError).toHaveBeenCalledWith('Backend timeout');
+    expect(mockPage.toastError).toHaveBeenCalledWith('Backend timeout');
 
     await act(async () => {
       root.unmount();
@@ -488,11 +497,11 @@ describe('MeetingChanges', () => {
     const container = createContainer();
     const root = createRoot(container);
 
-    pageMocks.getMeeting.mockResolvedValue(createMeetingResponse());
-    pageMocks.listChanges.mockResolvedValue([createChange()]);
-    pageMocks.getUserProjects.mockResolvedValue([createProjectResponse()]);
-    pageMocks.getProject.mockResolvedValue(createProjectResponse());
-    pageMocks.applyChange.mockRejectedValue({ code: 'E_UNKNOWN' });
+    mockPage.getMeeting.mockResolvedValue(createMeetingResponse());
+    mockPage.listChanges.mockResolvedValue([createChange()]);
+    mockPage.getUserProjects.mockResolvedValue([createProjectResponse()]);
+    mockPage.getProject.mockResolvedValue(createProjectResponse());
+    mockPage.applyChange.mockRejectedValue({ code: 'E_UNKNOWN' });
 
     await renderWithRoot(root);
     await flush();
@@ -507,7 +516,7 @@ describe('MeetingChanges', () => {
 
     await flush();
 
-    expect(pageMocks.toastError).toHaveBeenCalledWith('Failed to apply change to board');
+    expect(mockPage.toastError).toHaveBeenCalledWith('Failed to apply change to board');
 
     await act(async () => {
       root.unmount();
@@ -519,8 +528,8 @@ describe('MeetingChanges', () => {
     const container = createContainer();
     const root = createRoot(container);
 
-    pageMocks.getMeeting.mockResolvedValue(createMeetingResponse());
-    pageMocks.listChanges.mockResolvedValue([
+    mockPage.getMeeting.mockResolvedValue(createMeetingResponse());
+    mockPage.listChanges.mockResolvedValue([
       createCreateChange(),
       createDeleteChange(),
       createMoveChange(),
@@ -530,8 +539,8 @@ describe('MeetingChanges', () => {
         afterState: JSON.stringify({ title: 'Fallback title' }),
       }),
     ]);
-    pageMocks.getUserProjects.mockResolvedValue([createProjectResponse()]);
-    pageMocks.getProject.mockResolvedValue(createProjectResponse(['card-1', 'card-2']));
+    mockPage.getUserProjects.mockResolvedValue([createProjectResponse()]);
+    mockPage.getProject.mockResolvedValue(createProjectResponse(['card-1', 'card-2']));
 
     await renderWithRoot(root);
     await flush();
@@ -552,14 +561,14 @@ describe('MeetingChanges', () => {
     const container = createContainer();
     const root = createRoot(container);
 
-    pageMocks.getMeeting.mockRejectedValue(new Error('Meeting API unavailable'));
+    mockPage.getMeeting.mockRejectedValue(new Error('Meeting API unavailable'));
 
     await renderWithRoot(root);
     await flush();
     await flush();
 
     expect(container.textContent).toContain('Meeting not found');
-    expect(pageMocks.toastError).toHaveBeenCalledWith('Meeting API unavailable');
+    expect(mockPage.toastError).toHaveBeenCalledWith('Meeting API unavailable');
 
     const backButton = findButton(container, 'Back to Meetings');
     expect(backButton).toBeDefined();
@@ -568,7 +577,7 @@ describe('MeetingChanges', () => {
       backButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
-    expect(pageMocks.navigate).toHaveBeenCalledWith('/meetings');
+    expect(mockPage.navigate).toHaveBeenCalledWith('/meetings');
 
     await act(async () => {
       root.unmount();
