@@ -9,6 +9,7 @@ import com.flowboard.dto.StageDTO;
 import com.flowboard.service.JWTService;
 import com.flowboard.service.ProjectService;
 import com.flowboard.service.RateLimitService;
+import com.flowboard.service.BoardBroadcastService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -46,6 +47,9 @@ class BoardControllerUserStory1ApiTest {
 
     @MockBean
     private RateLimitService rateLimitService;
+
+    @MockBean
+    private BoardBroadcastService boardBroadcastService;
 
     @Test
     void addStage_returnsOk_andDelegatesToBoardModuleApi() throws Exception {
