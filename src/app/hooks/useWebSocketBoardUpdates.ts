@@ -27,7 +27,11 @@ interface CardDeleteEvent {
 }
 
 interface CardMoveEvent {
+  cardId: string;
   cardData: CardDTO;
+  fromStageId: string;
+  toStageId: string;
+  newPosition: number;
 }
 
 interface StageDeleteEvent {
