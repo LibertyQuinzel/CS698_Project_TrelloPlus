@@ -6,8 +6,7 @@ import { useProjectStore } from '../store/projectStore';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiService, mapProjectResponseToProject } from '../services/api';
 import { toast } from 'sonner';
-
-const DASHBOARD_SYNC_INTERVAL_MS = 5000;
+import { useWebSocketProjectUpdates } from '../hooks/useWebSocketProjectUpdates';
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -36,6 +35,7 @@ export function Dashboard() {
       }
     }, [setProjects]);
 
+  // Load projects on initial mount
   useEffect(() => {
     let isCancelled = false;
 
@@ -43,23 +43,18 @@ export function Dashboard() {
     void loadProjects({ showBlockingLoader: shouldBlockUI, showErrorToast: true });
     shouldBlockInitialUIRef.current = false;
 
-    const syncIfActive = () => {
-      if (isCancelled || document.visibilityState !== 'visible') {
-        return;
-      }
-
-      void loadProjects();
-    };
-
-    const intervalId = window.setInterval(syncIfActive, DASHBOARD_SYNC_INTERVAL_MS);
-    document.addEventListener('visibilitychange', syncIfActive);
-
     return () => {
       isCancelled = true;
-      window.clearInterval(intervalId);
-      document.removeEventListener('visibilitychange', syncIfActive);
     };
   }, [loadProjects]);
+
+  // Callback for WebSocket to refresh projects
+  const handleProjectsChanged = useCallback(() => {
+    void loadProjects({ showErrorToast: false });
+  }, [loadProjects]);
+
+  // Enable real-time project list updates via WebSocket instead of polling
+  useWebSocketProjectUpdates(handleProjectsChanged, projects.map(p => p.id));
 
   // Empty State
   if (isLoading) {
