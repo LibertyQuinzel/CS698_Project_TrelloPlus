@@ -54,7 +54,6 @@ export function MeetingSummary() {
   const [actionPriority, setActionPriority] = useState('MEDIUM');
   const [decisionDescription, setDecisionDescription] = useState('');
   const [decisionSourceContext, setDecisionSourceContext] = useState('');
-  const [decisionImpactSummary, setDecisionImpactSummary] = useState('');
   const [isSavingItem, setIsSavingItem] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isProjectOwner, setIsProjectOwner] = useState(false);
@@ -234,7 +233,6 @@ export function MeetingSummary() {
     setShowDecisionEditor(false);
     setDecisionDescription('');
     setDecisionSourceContext('');
-    setDecisionImpactSummary('');
   };
 
   const saveActionItem = async () => {
@@ -285,12 +283,10 @@ export function MeetingSummary() {
         ? await apiService.updateDecision(editingDecisionId, {
             description: decisionDescription.trim(),
             sourceContext: decisionSourceContext.trim() || undefined,
-            impactSummary: decisionImpactSummary.trim() || undefined,
           })
         : await apiService.addDecision(meetingId, {
             description: decisionDescription.trim(),
             sourceContext: decisionSourceContext.trim() || undefined,
-            impactSummary: decisionImpactSummary.trim() || undefined,
           });
       setSummary(nextSummary);
       resetDecisionEditor();
@@ -362,7 +358,6 @@ export function MeetingSummary() {
                   setEditingDecisionId(null);
                   setDecisionDescription('');
                   setDecisionSourceContext('');
-                  setDecisionImpactSummary('');
                   setShowDecisionEditor(true);
                 }}
               >
@@ -373,7 +368,6 @@ export function MeetingSummary() {
               <div className="mb-3 border rounded-lg p-3 bg-gray-50 space-y-2">
                 <Input placeholder="Decision description" value={decisionDescription} onChange={(e) => setDecisionDescription(e.target.value)} />
                 <Input placeholder="Source context (optional)" value={decisionSourceContext} onChange={(e) => setDecisionSourceContext(e.target.value)} />
-                <Input placeholder="Impact summary (optional)" value={decisionImpactSummary} onChange={(e) => setDecisionImpactSummary(e.target.value)} />
                 <div className="flex gap-2">
                   <Button size="sm" onClick={saveDecisionItem} disabled={isSavingItem || !decisionDescription.trim() || isAddDisabled}>Save</Button>
                   <Button size="sm" variant="outline" onClick={resetDecisionEditor}>Cancel</Button>
@@ -404,7 +398,6 @@ export function MeetingSummary() {
                         setEditingDecisionId(d.id);
                         setDecisionDescription(d.description || '');
                         setDecisionSourceContext(d.sourceContext || '');
-                        setDecisionImpactSummary('');
                         setShowDecisionEditor(true);
                       }}
                     >
