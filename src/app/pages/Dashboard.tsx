@@ -59,7 +59,7 @@ export function Dashboard() {
   // Empty State
   if (isLoading) {
     return (
-      <div className="p-4 md:p-8 pt-20 md:pt-24">
+      <div className="h-[calc(100vh-4rem)] overflow-y-auto p-4 md:p-8 pt-20 md:pt-24">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-4" />
@@ -72,7 +72,7 @@ export function Dashboard() {
 
   if (projects.length === 0) {
     return (
-      <div className="p-4 md:p-8 pt-20 md:pt-24">
+      <div className="h-[calc(100vh-4rem)] overflow-y-auto p-4 md:p-8 pt-20 md:pt-24">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 md:mb-8 gap-4">
             <div>
@@ -114,7 +114,7 @@ export function Dashboard() {
 
   // Success State - Projects displayed
   return (
-    <div className="p-4 md:p-8 pt-20 md:pt-24">
+    <div className="h-[calc(100vh-4rem)] overflow-y-auto p-4 md:p-8 pt-20 md:pt-24">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 md:mb-8 gap-4">
           <div>
