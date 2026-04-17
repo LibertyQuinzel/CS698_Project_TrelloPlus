@@ -854,10 +854,11 @@ async function test_INT_005_EC_04(browser) {
     });
 
     // Execution
+    const projectsRespPromise = waitForApiResponse(page, '/projects', 'GET');
     await page.goto(`${FRONTEND_BASE}/`, { waitUntil: 'domcontentloaded', timeout: 45000 });
 
     // Assertions
-    const response = await waitForApiResponse(page, '/projects', 'GET');
+    const response = await projectsRespPromise;
     assert([401, 403].includes(response.status()), `Expected unauthorized dashboard fetch, got ${response.status()}`);
   });
 }
