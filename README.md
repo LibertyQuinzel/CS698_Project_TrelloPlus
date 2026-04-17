@@ -103,7 +103,7 @@ If you want the lowest-friction production setup for this repo, use Render for t
 - Set `SPRING_PROFILES_ACTIVE=prod`.
 - Set `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`, and `CORS_ALLOWED_ORIGINS` in Render.
 - If you use Render Postgres, copy its JDBC connection string into `DB_URL`.
-- Optional: set `OLLAMA_BASE_URL` if the AI features should talk to a deployed Ollama service.
+- Set `BEDROCK_REGION`, `BEDROCK_MODEL_ID`, `BEDROCK_TIMEOUT_SECONDS`, and `BEDROCK_MAX_TOKENS` for AI features backed by AWS Bedrock.
 
 ### Vercel Frontend
 - Import the repository into Vercel and keep the project root at the repo root.
