@@ -43,6 +43,21 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      - name: Validate deployment secrets
+        env:
+          LAMBDA_FUNCTION_NAME: ${{ secrets.AWS_LAMBDA_FUNCTION_NAME }}
+          LAMBDA_ARTIFACTS_BUCKET: ${{ secrets.AWS_LAMBDA_ARTIFACTS_BUCKET }}
+        run: |
+          if [ -z "$LAMBDA_FUNCTION_NAME" ]; then
+            echo "Missing GitHub secret: AWS_LAMBDA_FUNCTION_NAME" >&2
+            exit 1
+          fi
+
+          if [ -z "$LAMBDA_ARTIFACTS_BUCKET" ]; then
+            echo "Missing GitHub secret: AWS_LAMBDA_ARTIFACTS_BUCKET" >&2
+            exit 1
+          fi
+
       - name: Package Lambda artifact
         run: |
           cd backend
@@ -51,17 +66,20 @@ jobs:
 
       - name: Upload artifact to S3
         env:
+          LAMBDA_ARTIFACTS_BUCKET: ${{ secrets.AWS_LAMBDA_ARTIFACTS_BUCKET }}
           ARTIFACT_KEY: lambda/${{ github.repository }}/${{ github.ref_name }}/flowboard-backend-${{ github.sha }}.zip
         run: |
           aws s3 cp \
             backend/flowboard-backend-lambda.zip \
-            s3://${{ secrets.AWS_LAMBDA_ARTIFACTS_BUCKET }}/$ARTIFACT_KEY
+            s3://$LAMBDA_ARTIFACTS_BUCKET/$ARTIFACT_KEY
 
       - name: Update Lambda function code
         env:
+          LAMBDA_FUNCTION_NAME: ${{ secrets.AWS_LAMBDA_FUNCTION_NAME }}
+          LAMBDA_ARTIFACTS_BUCKET: ${{ secrets.AWS_LAMBDA_ARTIFACTS_BUCKET }}
           ARTIFACT_KEY: lambda/${{ github.repository }}/${{ github.ref_name }}/flowboard-backend-${{ github.sha }}.zip
         run: |
           aws lambda update-function-code \
-            --function-name "${{ secrets.AWS_LAMBDA_FUNCTION_NAME }}" \
-            --s3-bucket "${{ secrets.AWS_LAMBDA_ARTIFACTS_BUCKET }}" \
+            --function-name "$LAMBDA_FUNCTION_NAME" \
+            --s3-bucket "$LAMBDA_ARTIFACTS_BUCKET" \
             --s3-key "$ARTIFACT_KEY"
