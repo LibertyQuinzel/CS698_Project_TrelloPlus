@@ -24,7 +24,7 @@ import {
   type MeetingSummaryResponse,
   type ApprovalStatusResponse,
 } from '../services/api';
-import { formatMeetingDate, formatMeetingTime } from '../utils/meetingDateTime';
+import { formatMeetingDateLocal, formatMeetingTimeLocal } from '../utils/timezoneUtils';
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   SCHEDULED: { label: 'Scheduled', color: 'bg-blue-50 text-blue-700 border-blue-200' },
@@ -338,8 +338,8 @@ export function MeetingSummary() {
               <h1 className="text-2xl font-bold text-gray-900">{meeting.title}</h1>
               <p className="text-sm text-gray-600 mt-1">Project: {meeting.projectName || 'N/A'}</p>
               <div className="flex items-center gap-4 text-sm text-gray-600 mt-2">
-                <div className="flex items-center gap-1"><Calendar className="w-4 h-4" />{formatMeetingDate(meeting.meetingDate)}</div>
-                <div className="flex items-center gap-1"><Clock className="w-4 h-4" />{formatMeetingTime(meeting.meetingTime)}</div>
+                <div className="flex items-center gap-1"><Calendar className="w-4 h-4" />{formatMeetingDateLocal(meeting.meetingDate)}</div>
+                <div className="flex items-center gap-1"><Clock className="w-4 h-4" />{formatMeetingTimeLocal(meeting.meetingDate, meeting.meetingTime)}</div>
               </div>
             </div>
             <Badge variant="outline" className={statusInfo.color}>{statusInfo.label}</Badge>
