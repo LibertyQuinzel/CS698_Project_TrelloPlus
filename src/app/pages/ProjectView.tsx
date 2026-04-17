@@ -49,6 +49,7 @@ export function ProjectView() {
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduleTime, setRescheduleTime] = useState('');
   const [isUpdatingMeeting, setIsUpdatingMeeting] = useState(false);
+  const [showFullDescription, setShowFullDescription] = useState(false);
   const attemptedProjectLoadRef = useRef<string | null>(null);
   const decisionsLoadKeyRef = useRef<string | null>(null);
 
@@ -459,9 +460,19 @@ export function ProjectView() {
       <div className="flex-shrink-0 bg-white border-b border-gray-200 z-30">
         <div className="px-6 md:px-12">
           <div className="flex items-center justify-between py-4">
-            <div>
+            <div className="flex-1">
               <h1 className="text-xl md:text-2xl font-bold text-gray-900">{project.name}</h1>
-              <p className="text-sm text-gray-600 mt-1">{project.description}</p>
+              <p className={`text-sm text-gray-600 mt-1 ${showFullDescription ? '' : 'line-clamp-3'}`}>
+                {project.description}
+              </p>
+              {project.description && project.description.length > 150 && (
+                <button 
+                  onClick={() => setShowFullDescription(!showFullDescription)} 
+                  className="text-blue-600 hover:text-blue-700 text-xs mt-2 font-medium transition-colors"
+                >
+                  {showFullDescription ? 'Show less' : 'Show more'}
+                </button>
+              )}
             </div>
           </div>
           
