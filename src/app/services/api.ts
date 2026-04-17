@@ -14,8 +14,9 @@ const parseTimeout = (value: string | undefined, fallbackMs: number): number => 
   return Math.floor(parsed);
 };
 
-const REQUEST_TIMEOUT_MS = parseTimeout(import.meta.env.VITE_REQUEST_TIMEOUT_MS, 15000);
-const LLM_REQUEST_TIMEOUT_MS = parseTimeout(import.meta.env.VITE_LLM_REQUEST_TIMEOUT_MS, 60000);
+const env = process.env;
+const REQUEST_TIMEOUT_MS = parseTimeout(env.VITE_REQUEST_TIMEOUT_MS, 15000);
+const LLM_REQUEST_TIMEOUT_MS = parseTimeout(env.VITE_LLM_REQUEST_TIMEOUT_MS, 60000);
 
 interface LoginRequest {
   email: string;
