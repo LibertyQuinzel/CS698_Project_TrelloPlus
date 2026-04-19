@@ -1,8 +1,7 @@
 import { useEffect, useRef } from 'react';
 import SockJS from 'sockjs-client';
 import { Client, StompSubscription } from '@stomp/stompjs';
-
-const WS_ENDPOINT = 'http://localhost:8080/api/v1/ws/board';
+import { ENABLE_REALTIME, WS_ENDPOINT } from '../services/runtimeConfig';
 
 /**
  * Hook for real-time project list updates via WebSocket
@@ -16,6 +15,18 @@ export const useWebSocketProjectUpdates = (onProjectsChanged: () => void, projec
   const projectSubscriptionsRef = useRef<Map<string, StompSubscription>>(new Map());
   const isConnectedRef = useRef(false);
   const projectIdsRef = useRef<string[] | undefined>(projectIds);
+
+  const shouldSkipRealtime = () => {
+    if (!ENABLE_REALTIME) {
+      return true;
+    }
+
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:' && WS_ENDPOINT.startsWith('http://')) {
+      return true;
+    }
+
+    return false;
+  };
 
   // Update projectIds ref whenever it changes
   useEffect(() => {
@@ -60,6 +71,11 @@ export const useWebSocketProjectUpdates = (onProjectsChanged: () => void, projec
   };
 
   useEffect(() => {
+    if (shouldSkipRealtime()) {
+      console.warn('[WS-Projects] Realtime disabled for current runtime configuration.');
+      return;
+    }
+
     const connectWebSocket = () => {
       try {
         console.log('[WS-Projects] Attempting to connect to', WS_ENDPOINT);
