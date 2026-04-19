@@ -158,7 +158,14 @@ jobs:
             --output text)
 
           if [ -z "$RESOURCE_ID" ] || [ "$RESOURCE_ID" = "None" ]; then
-            echo "Unable to locate API Gateway resource path /auth/login for REST API $REST_API_ID" >&2
+            RESOURCE_ID=$(aws apigateway get-resources \
+              --rest-api-id "$REST_API_ID" \
+              --query "items[?path=='/{proxy+}'].id | [0]" \
+              --output text)
+          fi
+
+          if [ -z "$RESOURCE_ID" ] || [ "$RESOURCE_ID" = "None" ]; then
+            echo "Unable to locate API Gateway resource path /auth/login or /{proxy+} for REST API $REST_API_ID" >&2
             exit 1
           fi
 
