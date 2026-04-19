@@ -136,6 +136,12 @@ jobs:
             exit 0
           fi
 
+          if ! aws apigateway get-rest-api --rest-api-id "$REST_API_ID" >/dev/null 2>&1; then
+            echo "Skipping API Gateway CORS setup: current AWS credentials do not have required apigateway permissions." >&2
+            echo "Grant apigateway:GET/POST/PUT/PATCH on this REST API to enable automated CORS provisioning." >&2
+            exit 0
+          fi
+
           if [ -z "$STAGE_NAME" ]; then
             STAGE_NAME="prod"
           fi
