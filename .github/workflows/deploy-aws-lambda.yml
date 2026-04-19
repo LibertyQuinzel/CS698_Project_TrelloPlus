@@ -47,7 +47,6 @@ jobs:
         env:
           LAMBDA_FUNCTION_NAME: ${{ secrets.AWS_LAMBDA_FUNCTION_NAME }}
           LAMBDA_ARTIFACTS_BUCKET: ${{ secrets.AWS_LAMBDA_ARTIFACTS_BUCKET }}
-          CORS_ALLOWED_ORIGINS: ${{ secrets.CORS_ALLOWED_ORIGINS }}
         run: |
           if [ -z "$LAMBDA_FUNCTION_NAME" ]; then
             echo "Missing GitHub secret: AWS_LAMBDA_FUNCTION_NAME" >&2
@@ -56,11 +55,6 @@ jobs:
 
           if [ -z "$LAMBDA_ARTIFACTS_BUCKET" ]; then
             echo "Missing GitHub secret: AWS_LAMBDA_ARTIFACTS_BUCKET" >&2
-            exit 1
-          fi
-
-          if [ -z "$CORS_ALLOWED_ORIGINS" ]; then
-            echo "Missing GitHub secret: CORS_ALLOWED_ORIGINS" >&2
             exit 1
           fi
 
@@ -124,98 +118,3 @@ jobs:
           done
 
           aws lambda wait function-updated --function-name "$LAMBDA_FUNCTION_NAME"
-
-      - name: Configure API Gateway CORS for auth login
-        env:
-          REST_API_ID: ${{ secrets.AWS_API_GATEWAY_REST_API_ID }}
-          STAGE_NAME: ${{ secrets.AWS_API_GATEWAY_STAGE }}
-          CORS_ALLOWED_ORIGINS: ${{ secrets.CORS_ALLOWED_ORIGINS }}
-        run: |
-          if [ -z "$REST_API_ID" ]; then
-            echo "Skipping API Gateway CORS setup: AWS_API_GATEWAY_REST_API_ID is not configured."
-            exit 0
-          fi
-
-          if ! aws apigateway get-rest-api --rest-api-id "$REST_API_ID" >/dev/null 2>&1; then
-            echo "Skipping API Gateway CORS setup: current AWS credentials do not have required apigateway permissions." >&2
-            echo "Grant apigateway:GET/POST/PUT/PATCH on this REST API to enable automated CORS provisioning." >&2
-            exit 0
-          fi
-
-          if [ -z "$STAGE_NAME" ]; then
-            STAGE_NAME="prod"
-          fi
-
-          PRIMARY_ORIGIN=$(echo "$CORS_ALLOWED_ORIGINS" | cut -d',' -f1 | xargs)
-          if [ -z "$PRIMARY_ORIGIN" ]; then
-            echo "CORS_ALLOWED_ORIGINS must contain at least one origin." >&2
-            exit 1
-          fi
-
-          RESOURCE_ID=$(aws apigateway get-resources \
-            --rest-api-id "$REST_API_ID" \
-            --query "items[?path=='/auth/login'].id | [0]" \
-            --output text)
-
-          if [ -z "$RESOURCE_ID" ] || [ "$RESOURCE_ID" = "None" ]; then
-            RESOURCE_ID=$(aws apigateway get-resources \
-              --rest-api-id "$REST_API_ID" \
-              --query "items[?path=='/{proxy+}'].id | [0]" \
-              --output text)
-          fi
-
-          if [ -z "$RESOURCE_ID" ] || [ "$RESOURCE_ID" = "None" ]; then
-            echo "Unable to locate API Gateway resource path /auth/login or /{proxy+} for REST API $REST_API_ID" >&2
-            exit 1
-          fi
-
-          if ! aws apigateway get-method \
-            --rest-api-id "$REST_API_ID" \
-            --resource-id "$RESOURCE_ID" \
-            --http-method OPTIONS >/dev/null 2>&1; then
-            aws apigateway put-method \
-              --rest-api-id "$REST_API_ID" \
-              --resource-id "$RESOURCE_ID" \
-              --http-method OPTIONS \
-              --authorization-type NONE \
-              --no-api-key-required
-          fi
-
-          aws apigateway put-integration \
-            --rest-api-id "$REST_API_ID" \
-            --resource-id "$RESOURCE_ID" \
-            --http-method OPTIONS \
-            --type MOCK \
-            --request-templates '{"application/json":"{\"statusCode\":200}"}'
-
-          aws apigateway put-method-response \
-            --rest-api-id "$REST_API_ID" \
-            --resource-id "$RESOURCE_ID" \
-            --http-method OPTIONS \
-            --status-code 200 \
-            --response-parameters \
-              "method.response.header.Access-Control-Allow-Origin=true,method.response.header.Access-Control-Allow-Methods=true,method.response.header.Access-Control-Allow-Headers=true,method.response.header.Access-Control-Allow-Credentials=true"
-
-          aws apigateway put-integration-response \
-            --rest-api-id "$REST_API_ID" \
-            --resource-id "$RESOURCE_ID" \
-            --http-method OPTIONS \
-            --status-code 200 \
-            --response-parameters \
-              "method.response.header.Access-Control-Allow-Origin='${PRIMARY_ORIGIN}',method.response.header.Access-Control-Allow-Methods='OPTIONS,POST',method.response.header.Access-Control-Allow-Headers='Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token',method.response.header.Access-Control-Allow-Credentials='true'"
-
-          aws apigateway put-gateway-response \
-            --rest-api-id "$REST_API_ID" \
-            --response-type DEFAULT_4XX \
-            --response-parameters \
-              "gatewayresponse.header.Access-Control-Allow-Origin='${PRIMARY_ORIGIN}',gatewayresponse.header.Access-Control-Allow-Headers='Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token',gatewayresponse.header.Access-Control-Allow-Methods='OPTIONS,GET,POST,PUT,DELETE'"
-
-          aws apigateway put-gateway-response \
-            --rest-api-id "$REST_API_ID" \
-            --response-type DEFAULT_5XX \
-            --response-parameters \
-              "gatewayresponse.header.Access-Control-Allow-Origin='${PRIMARY_ORIGIN}',gatewayresponse.header.Access-Control-Allow-Headers='Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token',gatewayresponse.header.Access-Control-Allow-Methods='OPTIONS,GET,POST,PUT,DELETE'"
-
-          aws apigateway create-deployment \
-            --rest-api-id "$REST_API_ID" \
-            --stage-name "$STAGE_NAME"
