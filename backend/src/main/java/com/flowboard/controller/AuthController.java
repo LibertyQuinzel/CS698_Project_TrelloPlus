@@ -24,7 +24,6 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
-@CrossOrigin(originPatterns = "http://localhost:*")
 public class AuthController {
     private final AuthService authService;
     private final JWTService jwtService;
