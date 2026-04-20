@@ -1,11 +1,7 @@
 name: Deploy AWS Amplify
 
 on:
-  push:
-    branches:
-      - main
-      - master
-      - deployment
+  workflow_call:
   workflow_dispatch:
 
 jobs:
