@@ -1,7 +1,18 @@
 import { chromium } from 'playwright';
 
-const FRONTEND_BASE = process.env.FRONTEND_BASE || 'http://127.0.0.1:5173';
-const BACKEND_BASE = process.env.BACKEND_BASE || 'http://127.0.0.1:8080/api/v1';
+function firstNonEmptyEnv(...keys) {
+  for (const key of keys) {
+    const value = process.env[key];
+    if (typeof value === 'string' && value.trim() !== '') {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
+const FRONTEND_BASE = firstNonEmptyEnv('FRONTEND_BASE', 'INTEGRATION_FRONTEND_BASE') || 'http://127.0.0.1:5173';
+const BACKEND_BASE = firstNonEmptyEnv('BACKEND_BASE', 'INTEGRATION_BACKEND_BASE') || 'http://127.0.0.1:8080/api/v1';
 const TEST_PASSWORD = process.env.TEST_PASSWORD || 'StrongPass!123';
 const TEST_EMAIL_PREFIX = process.env.TEST_EMAIL_PREFIX || 'fullstack.integration';
 const TEST_FULL_NAME_PREFIX = process.env.TEST_FULL_NAME_PREFIX || 'Fullstack Integration';
@@ -9,9 +20,9 @@ const PRIMARY_TEST_EMAIL = process.env.PRIMARY_TEST_EMAIL || '';
 const PRIMARY_TEST_PASSWORD = process.env.PRIMARY_TEST_PASSWORD || TEST_PASSWORD;
 const CREATE_PRIMARY_USER_EACH_RUN = (process.env.CREATE_PRIMARY_USER_EACH_RUN || 'true').toLowerCase() === 'true';
 const HEADLESS = (process.env.HEADLESS || 'true').toLowerCase() === 'true';
-const RUN_AI_CASES = (process.env.RUN_AI_CASES || 'false').toLowerCase() === 'true';
+const RUN_AI_CASES = (firstNonEmptyEnv('RUN_AI_CASES', 'INTEGRATION_RUN_AI_CASES') || 'false').toLowerCase() === 'true';
 const CLEANUP = (process.env.CLEANUP || 'true').toLowerCase() === 'true';
-const RUN_DEPLOYMENT_ONLY_CASES = (process.env.RUN_DEPLOYMENT_ONLY_CASES || 'false').toLowerCase() === 'true';
+const RUN_DEPLOYMENT_ONLY_CASES = (firstNonEmptyEnv('RUN_DEPLOYMENT_ONLY_CASES', 'INTEGRATION_DEPLOYMENT_ONLY_CASES') || 'false').toLowerCase() === 'true';
 const AUTH_RETRY_ATTEMPTS = Number(process.env.AUTH_RETRY_ATTEMPTS || 12);
 const AUTH_RETRY_DELAY_MS = Number(process.env.AUTH_RETRY_DELAY_MS || 2000);
 
