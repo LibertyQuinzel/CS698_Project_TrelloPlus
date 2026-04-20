@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 
 const FRONTEND_BASE = process.env.FRONTEND_BASE || 'http://127.0.0.1:5173';
-const BACKEND_BASE = process.env.BACKEND_BASE || 'http://localhost:8080/api/v1';
+const BACKEND_BASE = process.env.BACKEND_BASE || 'http://127.0.0.1:8080/api/v1';
 const TEST_PASSWORD = process.env.TEST_PASSWORD || 'StrongPass!123';
 const TEST_EMAIL_PREFIX = process.env.TEST_EMAIL_PREFIX || 'fullstack.integration';
 const TEST_FULL_NAME_PREFIX = process.env.TEST_FULL_NAME_PREFIX || 'Fullstack Integration';
