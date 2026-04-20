@@ -209,7 +209,7 @@ jobs:
   deploy-lambda:
     name: Package and Deploy Backend Lambda
     needs: integration-tests
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/deployment')
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
