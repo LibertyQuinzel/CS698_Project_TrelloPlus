@@ -58,7 +58,6 @@ jobs:
         run: |
           cd backend
           mvn -B -ntp -Plambda clean package
-          cp target/flowboard-backend-1.0.0.jar flowboard-backend-lambda.jar
 
       - name: Upload artifact to S3
         env:
@@ -66,7 +65,7 @@ jobs:
           ARTIFACT_KEY: lambda/${{ github.repository }}/${{ github.ref_name }}/flowboard-backend-${{ github.sha }}.jar
         run: |
           aws s3 cp \
-            backend/flowboard-backend-lambda.jar \
+            backend/target/flowboard-backend-1.0.0.jar \
             s3://$LAMBDA_ARTIFACTS_BUCKET/$ARTIFACT_KEY
 
       - name: Update Lambda function code
