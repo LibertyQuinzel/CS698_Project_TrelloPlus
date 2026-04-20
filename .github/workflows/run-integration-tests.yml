@@ -38,8 +38,8 @@ jobs:
 
       INTEGRATION_RUN_AI_CASES: "true"
       INTEGRATION_DEPLOYMENT_ONLY_CASES: "false"
-      INTEGRATION_FRONTEND_BASE: "http://127.0.0.1:5173"
-      INTEGRATION_BACKEND_BASE: "http://127.0.0.1:8080/api/v1"
+      INTEGRATION_FRONTEND_BASE: "${{ vars.INTEGRATION_FRONTEND_BASE }}"
+      INTEGRATION_BACKEND_BASE: "${{ vars.INTEGRATION_BACKEND_BASE }}"
 
     steps:
       - name: Checkout repository
