@@ -1,7 +1,22 @@
 import type { BoardTask, Project, ProjectMember } from '../store/projectStore';
+import { API_BASE_URL } from './runtimeConfig';
 
-const API_BASE_URL = 'http://localhost:8080/api/v1';
-const REQUEST_TIMEOUT_MS = 15000;
+const parseTimeout = (value: string | undefined, fallbackMs: number): number => {
+  if (!value) {
+    return fallbackMs;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallbackMs;
+  }
+
+  return Math.floor(parsed);
+};
+
+const env = process.env;
+const REQUEST_TIMEOUT_MS = parseTimeout(env.VITE_REQUEST_TIMEOUT_MS, 15000);
+const LLM_REQUEST_TIMEOUT_MS = parseTimeout(env.VITE_LLM_REQUEST_TIMEOUT_MS, 60000);
 
 interface LoginRequest {
   email: string;
@@ -373,7 +388,7 @@ export const apiService = {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(request),
-    });
+    }, LLM_REQUEST_TIMEOUT_MS);
 
     if (!response.ok) {
       throw new Error(await parseApiErrorMessage(response, 'Project creation failed'));
@@ -694,7 +709,7 @@ export const apiService = {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ meetingId }),
-    });
+    }, LLM_REQUEST_TIMEOUT_MS);
 
     if (!response.ok) {
       throw new Error(await parseApiErrorMessage(response, 'Failed to generate summary'));

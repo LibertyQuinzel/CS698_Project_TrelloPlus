@@ -47,7 +47,8 @@ jwt:
   expiration: 86400000  # 24 hours in milliseconds
 
 ai:
-  mock-enabled: true
-  openai:
-    api-key: ${OPENAI_API_KEY:mock-key}
-    model: ${OPENAI_MODEL:gpt-4-1106-preview}
+  bedrock:
+    region: ${BEDROCK_REGION:us-east-2}
+    model-id: ${BEDROCK_MODEL_ID:amazon.nova-micro-v1:0}
+    timeout-seconds: ${BEDROCK_TIMEOUT_SECONDS:30}
+    max-tokens: ${BEDROCK_MAX_TOKENS:2048}

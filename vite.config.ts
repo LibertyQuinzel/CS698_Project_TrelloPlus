@@ -1,11 +1,19 @@
 import { defineConfig } from 'vite'
 import path from 'path'
+import { fileURLToPath } from 'url'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 export default defineConfig({
   define: {
     global: 'globalThis',
+    'process.env.VITE_API_BASE_URL': JSON.stringify(process.env.VITE_API_BASE_URL || ''),
+    'process.env.VITE_WS_ENDPOINT': JSON.stringify(process.env.VITE_WS_ENDPOINT || ''),
+    'process.env.VITE_REQUEST_TIMEOUT_MS': JSON.stringify(process.env.VITE_REQUEST_TIMEOUT_MS || ''),
+    'process.env.VITE_LLM_REQUEST_TIMEOUT_MS': JSON.stringify(process.env.VITE_LLM_REQUEST_TIMEOUT_MS || ''),
   },
 
   optimizeDeps: {
