@@ -29,7 +29,7 @@ export const API_BASE_URL = normalizeBaseUrl(
 
 export const WS_ENDPOINT = normalizeBaseUrl(
   env.VITE_WS_ENDPOINT,
-  'wss://js545mgwdj.execute-api.us-east-2.amazonaws.com/prod',
+  'https://js545mgwdj.execute-api.us-east-2.amazonaws.com/prod/api/v1/ws/board',
 );
 
 export const ENABLE_REALTIME = parseBooleanEnv(env.VITE_ENABLE_REALTIME, true);
