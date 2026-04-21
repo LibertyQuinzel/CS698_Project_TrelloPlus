@@ -92,12 +92,12 @@ export const useWebSocketBoardUpdates = (boardId: string | null, projectId: stri
 
     const connectWebSocket = () => {
       try {
-        const wsUrl = convertToWebSocketProtocol(WS_ENDPOINT);
-        console.log('[WS] Attempting to connect to', wsUrl, '(converted from', WS_ENDPOINT, ')');
+        // SockJS handles the protocol upgrade automatically - pass the HTTPS URL as-is
+        console.log('[WS] Attempting to connect to', WS_ENDPOINT);
         const stompClient = new Client({
           webSocketFactory: () => {
-            console.log('[WS] Creating SockJS connection to', wsUrl);
-            return new SockJS(wsUrl);
+            console.log('[WS] Creating SockJS connection to', WS_ENDPOINT);
+            return new SockJS(WS_ENDPOINT);
           },
           reconnectDelay: 3000,
           debug: (msg) => {

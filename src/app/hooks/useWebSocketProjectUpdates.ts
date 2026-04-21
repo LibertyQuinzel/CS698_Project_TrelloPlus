@@ -80,14 +80,14 @@ export const useWebSocketProjectUpdates = (onProjectsChanged: () => void, projec
 
     const connectWebSocket = () => {
       try {
-        const wsUrl = convertToWebSocketProtocol(WS_ENDPOINT);
-        console.log('[WS-Projects] Attempting to connect to', wsUrl, '(converted from', WS_ENDPOINT, ')');
+        // SockJS handles the protocol upgrade automatically - pass the HTTPS URL as-is
+        console.log('[WS-Projects] Attempting to connect to', WS_ENDPOINT);
         const token = localStorage.getItem('authToken');
         
         const stompClient = new Client({
           webSocketFactory: () => {
-            console.log('[WS-Projects] Creating SockJS connection to', wsUrl);
-            return new SockJS(wsUrl);
+            console.log('[WS-Projects] Creating SockJS connection to', WS_ENDPOINT);
+            return new SockJS(WS_ENDPOINT);
           },
           connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
           reconnectDelay: 3000,
