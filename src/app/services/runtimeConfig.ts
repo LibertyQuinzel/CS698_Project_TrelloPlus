@@ -24,12 +24,12 @@ const parseBooleanEnv = (value: string | undefined, fallback: boolean): boolean 
 
 export const API_BASE_URL = normalizeBaseUrl(
   env.VITE_API_BASE_URL,
-  'http://localhost:8080/api/v1',
+  'https://5vo07e6o58.execute-api.us-east-2.amazonaws.com/prod/api/v1',
 );
 
 export const WS_ENDPOINT = normalizeBaseUrl(
   env.VITE_WS_ENDPOINT,
-  'http://localhost:8080/api/v1/ws/board',
+  'wss://js545mgwdj.execute-api.us-east-2.amazonaws.com/prod',
 );
 
 export const ENABLE_REALTIME = parseBooleanEnv(env.VITE_ENABLE_REALTIME, true);

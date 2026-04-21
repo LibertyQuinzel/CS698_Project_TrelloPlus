@@ -24,7 +24,6 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
-        <langchain4j.version>0.24.0</langchain4j.version>
         <aws.serverless.container.version>2.1.5</aws.serverless.container.version>
         <spring.boot.repackage.skip>false</spring.boot.repackage.skip>
     </properties>
@@ -89,19 +88,6 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- LangChain4j for LLM Integration -->
-        <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-core</artifactId>
-            <version>${langchain4j.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-open-ai</artifactId>
-            <version>${langchain4j.version}</version>
-        </dependency>
-
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
@@ -150,6 +136,27 @@
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>bedrockruntime</artifactId>
+            <version>2.25.54</version>
+        </dependency>
+
+        <!-- AWS Secrets Manager for credential management -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>secretsmanager</artifactId>
+            <version>2.25.54</version>
+        </dependency>
+
+        <!-- AWS DynamoDB for WebSocket connection state-->
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-dynamodb</artifactId>
+            <version>1.12.769</version>
+        </dependency>
+
+        <!-- AWS API Gateway Management API for sending messages to WebSocket clients -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>apigatewaymanagementapi</artifactId>
             <version>2.25.54</version>
         </dependency>
 
