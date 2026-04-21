@@ -20,6 +20,12 @@ import java.util.Map;
  * Manages WebSocket connections stored in DynamoDB and broadcasts messages to clients
  * via API Gateway Management API.
  */
+
+import com.amazonaws.services.dynamodbv2.model.UpdateItemRequest;
+import com.amazonaws.services.dynamodbv2.model.AttributeAction;
+import com.amazonaws.services.dynamodbv2.model.AttributeValueUpdate;
+
+
 public class WebSocketConnectionManager {
     private static final String TABLE_NAME = "flowboard-websocket-connections";
     private static final String CONNECTION_ID_KEY = "connectionId";
@@ -115,4 +121,21 @@ public class WebSocketConnectionManager {
             managementApiClient.close();
         }
     }
+    // ... inside WebSocketConnectionManager class
+public void updateConnectionBoardId(String connectionId, String boardId) {
+    Map<String, AttributeValue> key = new HashMap<>();
+    key.put(CONNECTION_ID_KEY, new AttributeValue().withS(connectionId));
+
+    Map<String, AttributeValueUpdate> attributeUpdates = new HashMap<>();
+    attributeUpdates.put("boardId", new AttributeValueUpdate()
+            .withValue(new AttributeValue().withS(boardId))
+            .withAction(AttributeAction.PUT));
+
+    UpdateItemRequest request = new UpdateItemRequest()
+            .withTableName(TABLE_NAME)
+            .withKey(key)
+            .withAttributeUpdates(attributeUpdates);
+
+    dynamoDb.updateItem(request);
+}
 }
