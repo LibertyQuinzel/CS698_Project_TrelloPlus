@@ -1,10 +1,10 @@
 import { isUnsupportedRealtimeEndpoint } from './runtimeConfig';
 
 describe('isUnsupportedRealtimeEndpoint', () => {
-  it('flags API Gateway execute-api endpoints as unsupported for SockJS realtime', () => {
+  it('supports API Gateway v2 WebSocket endpoints with proper handler', () => {
     expect(
-      isUnsupportedRealtimeEndpoint('https://js545mgwdj.execute-api.us-east-2.amazonaws.com/prod/api/v1/ws/board')
-    ).toBe(true);
+      isUnsupportedRealtimeEndpoint('https://js545mgwdj.execute-api.us-east-2.amazonaws.com/prod')
+    ).toBe(false);
   });
 
   it('allows localhost websocket endpoints', () => {

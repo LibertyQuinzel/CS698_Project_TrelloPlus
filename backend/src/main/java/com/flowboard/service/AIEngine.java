@@ -41,7 +41,7 @@ public class AIEngine {
     @Value("${ai.bedrock.region:us-east-2}")
     private String bedrockRegion;
 
-    @Value("${ai.bedrock.model-id:amazon.nova-micro-v1:0}")
+    @Value("${ai.bedrock.model-id:us.amazon.nova-micro-v1:0}")
     private String bedrockModelId;
 
     @Value("${ai.bedrock.timeout-seconds:30}")
@@ -51,6 +51,15 @@ public class AIEngine {
     private int bedrockMaxTokens;
 
     private final ObjectMapper objectMapper;
+
+    private String resolveInvokeModelId() {
+        String modelId = bedrockModelId == null ? "" : bedrockModelId.trim();
+        if ("amazon.nova-micro-v1:0".equalsIgnoreCase(modelId)) {
+            log.warn("BEDROCK_MODEL_ID '{}' requires an inference profile for on-demand usage; switching to '{}'", modelId, "us.amazon.nova-micro-v1:0");
+            return "us.amazon.nova-micro-v1:0";
+        }
+        return modelId;
+    }
 
     /**
      * Analyzes project description and generates AI-suggested board structure.
@@ -267,50 +276,51 @@ public class AIEngine {
     }
 
     private String invokeBedrock(String prompt) throws IOException {
+        String resolvedModelId = resolveInvokeModelId();
         try (BedrockRuntimeClient bedrockClient = BedrockRuntimeClient.builder()
             .region(Region.of(bedrockRegion))
             .overrideConfiguration(ClientOverrideConfiguration.builder()
                 .apiCallTimeout(Duration.ofSeconds(bedrockTimeoutSeconds))
                 .build())
             .build()) {
-            String requestJson = buildBedrockRequestPayload(prompt);
+            String requestJson = buildBedrockRequestPayload(prompt, resolvedModelId);
 
             InvokeModelRequest request = InvokeModelRequest.builder()
-                .modelId(bedrockModelId)
+                .modelId(resolvedModelId)
                 .contentType("application/json")
                 .accept("application/json")
                 .body(SdkBytes.fromUtf8String(requestJson))
                 .build();
 
             InvokeModelResponse response = bedrockClient.invokeModel(request);
-            return extractBedrockTextResponse(response == null ? null : response.body());
+            return extractBedrockTextResponse(response == null ? null : response.body(), resolvedModelId);
         } catch (Exception ex) {
             throw new IOException("Bedrock call failed: " + ex.getMessage(), ex);
         }
     }
 
-    private String buildBedrockRequestPayload(String prompt) throws IOException {
-        if (isAnthropicModel()) {
+    private String buildBedrockRequestPayload(String prompt, String modelId) throws IOException {
+        if (isAnthropicModel(modelId)) {
             return objectMapper.writeValueAsString(new AnthropicMessagesRequest(prompt, bedrockMaxTokens));
         }
 
-        if (isNovaModel()) {
+        if (isNovaModel(modelId)) {
             return objectMapper.writeValueAsString(new NovaMessagesRequest(prompt, bedrockMaxTokens));
         }
 
-        if (isOpenAIModel()) {
+        if (isOpenAIModel(modelId)) {
             return objectMapper.writeValueAsString(new OpenAIChatRequest(prompt, bedrockMaxTokens));
         }
 
-        if (isTitanTextModel()) {
+        if (isTitanTextModel(modelId)) {
             return objectMapper.writeValueAsString(new TitanTextRequest(prompt, bedrockMaxTokens));
         }
 
-        throw new IOException("Unsupported BEDROCK_MODEL_ID format: " + bedrockModelId
+        throw new IOException("Unsupported BEDROCK_MODEL_ID format: " + modelId
             + ". Supported prefixes: anthropic., amazon.nova, openai., amazon.titan-text");
     }
 
-    private String extractBedrockTextResponse(SdkBytes responseBody) throws IOException {
+    private String extractBedrockTextResponse(SdkBytes responseBody, String modelId) throws IOException {
         if (responseBody == null) {
             throw new IOException("Bedrock returned an empty response body");
         }
@@ -320,7 +330,7 @@ public class AIEngine {
             throw new IOException("Bedrock returned an empty response payload");
         }
 
-        if (isAnthropicModel()) {
+        if (isAnthropicModel(modelId)) {
             AnthropicMessagesResponse response = objectMapper.readValue(rawJson, AnthropicMessagesResponse.class);
             if (response.content != null) {
                 for (AnthropicContentBlock block : response.content) {
@@ -332,7 +342,7 @@ public class AIEngine {
             throw new IOException("Bedrock anthropic response did not include text content");
         }
 
-        if (isNovaModel()) {
+        if (isNovaModel(modelId)) {
             NovaMessagesResponse response = objectMapper.readValue(rawJson, NovaMessagesResponse.class);
             if (response.output != null && response.output.message != null && response.output.message.content != null) {
                 for (NovaContentPart part : response.output.message.content) {
@@ -344,7 +354,7 @@ public class AIEngine {
             throw new IOException("Bedrock Nova response did not include text content");
         }
 
-        if (isOpenAIModel()) {
+        if (isOpenAIModel(modelId)) {
             OpenAIChatResponse response = objectMapper.readValue(rawJson, OpenAIChatResponse.class);
             if (response.choices != null) {
                 for (OpenAIChoice choice : response.choices) {
@@ -356,7 +366,7 @@ public class AIEngine {
             throw new IOException("Bedrock OpenAI response did not include message content");
         }
 
-        if (isTitanTextModel()) {
+        if (isTitanTextModel(modelId)) {
             TitanTextResponse response = objectMapper.readValue(rawJson, TitanTextResponse.class);
             if (response.results != null) {
                 for (TitanTextResult result : response.results) {
@@ -368,26 +378,26 @@ public class AIEngine {
             throw new IOException("Bedrock Titan response did not include output text");
         }
 
-        throw new IOException("Unsupported BEDROCK_MODEL_ID format for response parsing: " + bedrockModelId);
+        throw new IOException("Unsupported BEDROCK_MODEL_ID format for response parsing: " + modelId);
     }
 
-    private boolean isAnthropicModel() {
-        String value = bedrockModelId == null ? "" : bedrockModelId.toLowerCase(Locale.ROOT);
+    private boolean isAnthropicModel(String modelId) {
+        String value = modelId == null ? "" : modelId.toLowerCase(Locale.ROOT);
         return value.startsWith("anthropic.") || value.contains("anthropic.claude");
     }
 
-    private boolean isNovaModel() {
-        String value = bedrockModelId == null ? "" : bedrockModelId.toLowerCase(Locale.ROOT);
+    private boolean isNovaModel(String modelId) {
+        String value = modelId == null ? "" : modelId.toLowerCase(Locale.ROOT);
         return value.startsWith("amazon.nova") || value.contains("amazon.nova");
     }
 
-    private boolean isOpenAIModel() {
-        String value = bedrockModelId == null ? "" : bedrockModelId.toLowerCase(Locale.ROOT);
+    private boolean isOpenAIModel(String modelId) {
+        String value = modelId == null ? "" : modelId.toLowerCase(Locale.ROOT);
         return value.startsWith("openai.") || value.contains("openai.gpt-oss");
     }
 
-    private boolean isTitanTextModel() {
-        String value = bedrockModelId == null ? "" : bedrockModelId.toLowerCase(Locale.ROOT);
+    private boolean isTitanTextModel(String modelId) {
+        String value = modelId == null ? "" : modelId.toLowerCase(Locale.ROOT);
         return value.startsWith("amazon.titan-text") || value.contains("amazon.titan-text");
     }
 
