@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/projects")
+@RequestMapping({"/projects", "/api/v1/projects"})
 @RequiredArgsConstructor
 public class ProjectController {
     private final ProjectService projectService;

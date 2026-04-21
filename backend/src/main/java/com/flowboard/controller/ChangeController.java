@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/changes")
+@RequestMapping({"/changes", "/api/v1/changes"})
 @RequiredArgsConstructor
 public class ChangeController {
     private final ChangePreviewService changePreviewService;

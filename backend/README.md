@@ -68,24 +68,26 @@ The backend will start on `http://localhost:8080/api/v1`
 
 ## API Documentation
 
+All backend routes are served under the `/api/v1` base path in production and local runs.
+
 - **Auth Endpoints**
-  - `POST /auth/register` - Register a new user
-  - `POST /auth/login` - Login and get JWT token
+  - `POST /api/v1/auth/register` - Register a new user
+  - `POST /api/v1/auth/login` - Login and get JWT token
 
 - **Project Endpoints**
-  - `POST /projects` - Create a new project (requires auth)
-  - `GET /projects` - Get user's projects (requires auth)
-  - `GET /projects/{projectId}` - Get project details
-  - `DELETE /projects/{projectId}` - Delete project
+  - `POST /api/v1/projects` - Create a new project (requires auth)
+  - `GET /api/v1/projects` - Get user's projects (requires auth)
+  - `GET /api/v1/projects/{projectId}` - Get project details
+  - `DELETE /api/v1/projects/{projectId}` - Delete project
 
 - **Board Endpoints**
-  - `POST /boards/{boardId}/stages` - Add stage to board
-  - `PUT /boards/stages/{stageId}` - Update stage
-  - `DELETE /boards/stages/{stageId}` - Delete stage
-  - `POST /boards/stages/{stageId}/cards` - Create card
-  - `PUT /boards/cards/{cardId}` - Update card
-  - `PUT /boards/cards/{cardId}/move` - Move card to another stage
-  - `DELETE /boards/cards/{cardId}` - Delete card
+  - `POST /api/v1/boards/{boardId}/stages` - Add stage to board
+  - `PUT /api/v1/boards/stages/{stageId}` - Update stage
+  - `DELETE /api/v1/boards/stages/{stageId}` - Delete stage
+  - `POST /api/v1/boards/stages/{stageId}/cards` - Create card
+  - `PUT /api/v1/boards/cards/{cardId}` - Update card
+  - `PUT /api/v1/boards/cards/{cardId}/move` - Move card to another stage
+  - `DELETE /api/v1/boards/cards/{cardId}` - Delete card
 
 ## Configuration
 
