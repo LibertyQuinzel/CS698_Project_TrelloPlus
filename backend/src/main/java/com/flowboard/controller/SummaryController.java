@@ -18,7 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/summaries")
+@RequestMapping({"/summaries", "/api/v1/summaries"})
 @RequiredArgsConstructor
 public class SummaryController {
     private final SummaryService summaryService;

@@ -16,7 +16,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/approvals")
+@RequestMapping({"/approvals", "/api/v1/approvals"})
 @RequiredArgsConstructor
 public class ApprovalSummaryController {
     private final ApprovalService approvalService;

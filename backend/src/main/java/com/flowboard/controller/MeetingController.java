@@ -21,7 +21,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/meetings")
+@RequestMapping({"/meetings", "/api/v1/meetings"})
 @RequiredArgsConstructor
 public class MeetingController {
     private final MeetingService meetingService;

@@ -54,6 +54,12 @@ public class StreamLambdaHandler implements RequestStreamHandler {
                 System.setProperty("DB_PASSWORD", dbPassword);
             }
 
+            // Load DB_USERNAME
+            String dbUsername = getSecretValue(client, "flowboard/db-username");
+            if (dbUsername != null && !dbUsername.isEmpty()) {
+                System.setProperty("DB_USERNAME", dbUsername);
+            }
+
             System.out.println("Successfully loaded secrets from AWS Secrets Manager");
         } catch (Exception e) {
             System.err.println("Warning: Could not load all secrets from Secrets Manager: " + e.getMessage());

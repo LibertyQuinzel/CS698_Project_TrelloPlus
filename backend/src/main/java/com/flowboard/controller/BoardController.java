@@ -14,7 +14,7 @@ import java.time.Duration;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/boards")
+@RequestMapping({"/boards", "/api/v1/boards"})
 @RequiredArgsConstructor
 public class BoardController {
     private final ProjectService projectService;

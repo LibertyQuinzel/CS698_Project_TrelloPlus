@@ -22,7 +22,7 @@ import java.time.Duration;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/auth")
+@RequestMapping({"/auth", "/api/v1/auth"})
 @RequiredArgsConstructor
 public class AuthController {
     private final AuthService authService;
