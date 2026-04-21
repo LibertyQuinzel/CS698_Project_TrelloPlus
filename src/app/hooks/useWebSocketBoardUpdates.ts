@@ -34,7 +34,7 @@ export const useWebSocketBoardUpdates = (boardId: string | null) => {
       try {
         const message = JSON.parse(event.data);
         const cardData = message.cardData ?? message.data;
-        
+        console.log('[WS] Received Message:', message);
         // Route the message to your store
         switch (message.type) {
           case 'CARD_CREATED': addCardToBoard(message.data); break;
