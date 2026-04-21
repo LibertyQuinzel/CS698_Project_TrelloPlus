@@ -258,7 +258,7 @@ public class AIEngine {
     }
 
     private <T> T callBedrock(String prompt, Class<T> responseType) throws IOException {
-        String generatedJson = stripCodeFences(invokeBedrock(prompt));
+        String generatedJson = stripFormattingArtifacts(invokeBedrock(prompt));
         if (generatedJson == null || generatedJson.isBlank()) {
             throw new IOException("Bedrock response body was empty");
         }
@@ -298,12 +298,16 @@ public class AIEngine {
             return objectMapper.writeValueAsString(new NovaMessagesRequest(prompt, bedrockMaxTokens));
         }
 
+        if (isOpenAIModel()) {
+            return objectMapper.writeValueAsString(new OpenAIChatRequest(prompt, bedrockMaxTokens));
+        }
+
         if (isTitanTextModel()) {
             return objectMapper.writeValueAsString(new TitanTextRequest(prompt, bedrockMaxTokens));
         }
 
         throw new IOException("Unsupported BEDROCK_MODEL_ID format: " + bedrockModelId
-            + ". Supported prefixes: anthropic., amazon.nova, amazon.titan-text");
+            + ". Supported prefixes: anthropic., amazon.nova, openai., amazon.titan-text");
     }
 
     private String extractBedrockTextResponse(SdkBytes responseBody) throws IOException {
@@ -340,6 +344,18 @@ public class AIEngine {
             throw new IOException("Bedrock Nova response did not include text content");
         }
 
+        if (isOpenAIModel()) {
+            OpenAIChatResponse response = objectMapper.readValue(rawJson, OpenAIChatResponse.class);
+            if (response.choices != null) {
+                for (OpenAIChoice choice : response.choices) {
+                    if (choice != null && choice.message != null && choice.message.content != null && !choice.message.content.isBlank()) {
+                        return choice.message.content;
+                    }
+                }
+            }
+            throw new IOException("Bedrock OpenAI response did not include message content");
+        }
+
         if (isTitanTextModel()) {
             TitanTextResponse response = objectMapper.readValue(rawJson, TitanTextResponse.class);
             if (response.results != null) {
@@ -363,6 +379,11 @@ public class AIEngine {
     private boolean isNovaModel() {
         String value = bedrockModelId == null ? "" : bedrockModelId.toLowerCase(Locale.ROOT);
         return value.startsWith("amazon.nova") || value.contains("amazon.nova");
+    }
+
+    private boolean isOpenAIModel() {
+        String value = bedrockModelId == null ? "" : bedrockModelId.toLowerCase(Locale.ROOT);
+        return value.startsWith("openai.") || value.contains("openai.gpt-oss");
     }
 
     private boolean isTitanTextModel() {
@@ -424,6 +445,15 @@ public class AIEngine {
             }
         }
         return trimmed;
+    }
+
+    private String stripFormattingArtifacts(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String cleaned = value.replaceAll("(?s)<reasoning>.*?</reasoning>", "").trim();
+        return stripCodeFences(cleaned);
     }
 
     private String defaultIfBlank(String value, String fallback) {
@@ -625,6 +655,41 @@ public class AIEngine {
     @JsonIgnoreProperties(ignoreUnknown = true)
     private static class TitanTextResult {
         public String outputText;
+    }
+
+    private static class OpenAIChatRequest {
+        public List<OpenAIChatMessage> messages;
+        public int max_completion_tokens;
+        public float temperature = 0.1f;
+
+        private OpenAIChatRequest(String prompt, int maxTokens) {
+            this.messages = List.of(new OpenAIChatMessage(prompt));
+            this.max_completion_tokens = maxTokens;
+        }
+    }
+
+    private static class OpenAIChatMessage {
+        public String role = "user";
+        public String content;
+
+        private OpenAIChatMessage(String content) {
+            this.content = content;
+        }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private static class OpenAIChatResponse {
+        public List<OpenAIChoice> choices;
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private static class OpenAIChoice {
+        public OpenAIChoiceMessage message;
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private static class OpenAIChoiceMessage {
+        public String content;
     }
 
     // Inner class for meeting analysis results

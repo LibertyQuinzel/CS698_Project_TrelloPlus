@@ -49,6 +49,6 @@ jwt:
 ai:
   bedrock:
     region: ${BEDROCK_REGION:us-east-2}
-    model-id: ${BEDROCK_MODEL_ID:amazon.nova-micro-v1:0}
+    model-id: ${BEDROCK_MODEL_ID:openai.gpt-oss-20b-1:0}
     timeout-seconds: ${BEDROCK_TIMEOUT_SECONDS:30}
     max-tokens: ${BEDROCK_MAX_TOKENS:2048}

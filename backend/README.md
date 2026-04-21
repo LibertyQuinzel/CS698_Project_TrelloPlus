@@ -97,7 +97,7 @@ Recommended: copy `.env.example` from the repository root and set secure values 
 - `JWT_SECRET` (minimum 32 bytes, for example generate with `openssl rand -base64 48`)
 - `CORS_ALLOWED_ORIGINS`
 - `APP_LOG_LEVEL`, `SECURITY_LOG_LEVEL`
-- `BEDROCK_REGION`, `BEDROCK_MODEL_ID`, `BEDROCK_TIMEOUT_SECONDS`, `BEDROCK_MAX_TOKENS`
+- `BEDROCK_REGION`, `BEDROCK_MODEL_ID` (use a Bedrock model ID or inference profile ARN), `BEDROCK_TIMEOUT_SECONDS`, `BEDROCK_MAX_TOKENS`
 
 ## Testing
 
