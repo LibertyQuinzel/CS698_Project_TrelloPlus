@@ -132,6 +132,11 @@
             <artifactId>aws-serverless-java-container-springboot3</artifactId>
             <version>${aws.serverless.container.version}</version>
         </dependency>
+        <dependency>
+    <groupId>com.amazonaws</groupId>
+    <artifactId>aws-java-sdk-apigatewaymanagementapi</artifactId>
+    <version>1.12.769</version>
+</dependency>
 
         <dependency>
             <groupId>software.amazon.awssdk</groupId>

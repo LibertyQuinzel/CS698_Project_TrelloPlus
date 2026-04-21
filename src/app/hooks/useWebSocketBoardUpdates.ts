@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useProjectStore } from '../store/projectStore';
 import { ENABLE_REALTIME, WS_ENDPOINT } from '../services/runtimeConfig';
 
-export const useWebSocketBoardUpdates = (boardId: string | null, projectId: string | null = null) => {
+export const useWebSocketBoardUpdates = (boardId: string | null) => {
   const socketRef = useRef<WebSocket | null>(null);
 
   const {
@@ -12,9 +12,6 @@ export const useWebSocketBoardUpdates = (boardId: string | null, projectId: stri
     deleteStageFromBoard,
     updateStageFromRealTime,
     addStageToBoard,
-    addTeamMemberToProject,
-    removeTeamMemberFromProject,
-    updateTeamMemberRole,
   } = useProjectStore();
 
   useEffect(() => {
@@ -36,13 +33,17 @@ export const useWebSocketBoardUpdates = (boardId: string | null, projectId: stri
     socket.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
+        const cardData = message.cardData ?? message.data;
         
         // Route the message to your store
         switch (message.type) {
           case 'CARD_CREATED': addCardToBoard(message.data); break;
           case 'CARD_UPDATED': updateCardFromRealTime(message.data); break;
           case 'CARD_DELETED': deleteCardFromRealTime(message.stageId, message.cardId); break;
-          // Add your other cases here...
+          case 'CARD_MOVED': updateCardFromRealTime(cardData); break;
+          case 'STAGE_CREATED': addStageToBoard(message.data); break;
+          case 'STAGE_UPDATED': updateStageFromRealTime(message.data); break;
+          case 'STAGE_DELETED': deleteStageFromBoard(message.stageId); break;
         }
       } catch (err) {
         console.error('[WS] Error parsing message', err);

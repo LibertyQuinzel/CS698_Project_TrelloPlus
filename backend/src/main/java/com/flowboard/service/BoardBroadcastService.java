@@ -2,11 +2,15 @@ package com.flowboard.service;
 
 import com.flowboard.dto.CardDTO;
 import com.flowboard.dto.StageDTO;
+import com.flowboard.websocket.WebSocketConnectionManager;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -27,6 +31,8 @@ import java.util.UUID;
 public class BoardBroadcastService {
 
     private final SimpMessagingTemplate messagingTemplate;
+    private final WebSocketConnectionManager webSocketConnectionManager;
+    private final ObjectMapper objectMapper;
 
     /**
      * Broadcast a new card creation to all users viewing the board
@@ -35,6 +41,7 @@ public class BoardBroadcastService {
         String topic = "/topic/board/" + boardId + "/stage/" + stageId + "/card-created";
         log.info("Broadcasting card creation to {}: {}", topic, card.getId());
         messagingTemplate.convertAndSend(topic, card);
+        broadcastToWebSocket(boardId, buildEvent("CARD_CREATED", card, stageId, null, null, null));
     }
 
     /**
@@ -44,6 +51,7 @@ public class BoardBroadcastService {
         String topic = "/topic/board/" + boardId + "/stage/" + stageId + "/card-updated";
         log.info("Broadcasting card update to {}: {}", topic, card.getId());
         messagingTemplate.convertAndSend(topic, card);
+        broadcastToWebSocket(boardId, buildEvent("CARD_UPDATED", card, stageId, null, null, null));
     }
 
     /**
@@ -54,6 +62,7 @@ public class BoardBroadcastService {
         CardMoveEvent event = new CardMoveEvent(card, fromStageId, toStageId, newPosition);
         log.info("Broadcasting card move to {}: {} from stage {} to {}", topic, card.getId(), fromStageId, toStageId);
         messagingTemplate.convertAndSend(topic, event);
+        broadcastToWebSocket(boardId, buildEvent("CARD_MOVED", null, null, null, null, event));
     }
 
     /**
@@ -64,6 +73,7 @@ public class BoardBroadcastService {
         CardDeleteEvent event = new CardDeleteEvent(cardId, stageId);
         log.info("Broadcasting card deletion to {}: {}", topic, cardId);
         messagingTemplate.convertAndSend(topic, event);
+        broadcastToWebSocket(boardId, buildEvent("CARD_DELETED", null, stageId, cardId, null, null));
     }
 
     /**
@@ -73,6 +83,7 @@ public class BoardBroadcastService {
         String topic = "/topic/board/" + boardId + "/stage-created";
         log.info("Broadcasting stage creation to {}: {}", topic, stage.getId());
         messagingTemplate.convertAndSend(topic, stage);
+        broadcastToWebSocket(boardId, buildEvent("STAGE_CREATED", stage, null, null, null, null));
     }
 
     /**
@@ -82,6 +93,7 @@ public class BoardBroadcastService {
         String topic = "/topic/board/" + boardId + "/stage-updated";
         log.info("Broadcasting stage update to {}: {}", topic, stage.getId());
         messagingTemplate.convertAndSend(topic, stage);
+        broadcastToWebSocket(boardId, buildEvent("STAGE_UPDATED", stage, null, null, null, null));
     }
 
     /**
@@ -92,6 +104,7 @@ public class BoardBroadcastService {
         StageDeleteEvent event = new StageDeleteEvent(stageId);
         log.info("Broadcasting stage deletion to {}: {}", topic, stageId);
         messagingTemplate.convertAndSend(topic, event);
+        broadcastToWebSocket(boardId, buildEvent("STAGE_DELETED", null, stageId, null, null, null));
     }
 
     /**
@@ -260,6 +273,52 @@ public class BoardBroadcastService {
         ChangeApprovalEvent event = new ChangeApprovalEvent(changeId, decision, feedback);
         log.info("Broadcasting change approval change to {}", topic);
         messagingTemplate.convertAndSend(topic, event);
+    }
+
+    private Map<String, Object> buildEvent(
+        String type,
+        Object data,
+        UUID stageId,
+        UUID cardId,
+        UUID fromStageId,
+        CardMoveEvent cardMoveEvent
+    ) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("type", type);
+        payload.put("eventType", type);
+
+        if (data != null) {
+            payload.put("data", data);
+        }
+        if (stageId != null) {
+            payload.put("stageId", stageId.toString());
+        }
+        if (cardId != null) {
+            payload.put("cardId", cardId.toString());
+        }
+        if (fromStageId != null) {
+            payload.put("fromStageId", fromStageId.toString());
+        }
+        if (cardMoveEvent != null) {
+            payload.put("cardData", cardMoveEvent.cardData);
+            payload.put("fromStageId", cardMoveEvent.fromStageId != null ? cardMoveEvent.fromStageId.toString() : null);
+            payload.put("toStageId", cardMoveEvent.toStageId != null ? cardMoveEvent.toStageId.toString() : null);
+            payload.put("newPosition", cardMoveEvent.newPosition);
+        }
+
+        return payload;
+    }
+
+    private void broadcastToWebSocket(UUID boardId, Map<String, Object> payload) {
+        if (boardId == null) {
+            return;
+        }
+
+        try {
+            webSocketConnectionManager.broadcastToBoard(boardId.toString(), objectMapper.writeValueAsString(payload));
+        } catch (Exception e) {
+            log.warn("Failed to mirror board event {} to WebSocket connections for board {}: {}", payload.get("type"), boardId, e.getMessage());
+        }
     }
     
     public void broadcastChangeApplied(UUID projectId, UUID changeId) {

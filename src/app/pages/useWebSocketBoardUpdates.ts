@@ -88,6 +88,10 @@ export function handleWebSocketBoardMessage(
     return applyCardMovedEvent(state, event as CardMoveEvent);
   }
 
+  if (event.type === 'CARD_CREATED' || event.type === 'STAGE_CREATED') {
+    return state;
+  }
+
   return state;
 }
 

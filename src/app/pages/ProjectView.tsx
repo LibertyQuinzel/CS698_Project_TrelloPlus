@@ -421,7 +421,7 @@ export function ProjectView() {
 
   // Enable real-time board updates via WebSocket
   const boardId = project?.boardId || null;
-  useWebSocketBoardUpdates(boardId, projectId);
+  useWebSocketBoardUpdates(boardId);
 
   if (isLoadingProject) {
     return (

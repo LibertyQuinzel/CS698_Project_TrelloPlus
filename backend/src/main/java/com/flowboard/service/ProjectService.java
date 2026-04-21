@@ -7,7 +7,10 @@ import com.flowboard.entity.Project;
 import com.flowboard.entity.Stage;
 import com.flowboard.entity.User;
 import com.flowboard.repository.*;
+import com.flowboard.websocket.WebSocketConnectionManager;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,6 +27,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProjectService {
@@ -41,6 +46,8 @@ public class ProjectService {
     private final AIEngine aiEngine;
     private final BoardGenerator boardGenerator;
     private final BoardBroadcastService broadcastService;
+    private final WebSocketConnectionManager webSocketConnectionManager;
+    private final ObjectMapper objectMapper;
 
     private enum ProjectMemberRole {
         OWNER,
@@ -129,6 +136,9 @@ public class ProjectService {
             Board emptyBoard = boardGenerator.generateEmptyBoard(project);
             ProjectDTO result = toProjectDTO(project, emptyBoard);
             broadcastService.broadcastProjectCreated(result);
+            
+            // Broadcast WebSocket message to project subscribers
+            broadcastProjectCreatedWebSocket(project.getId(), result);
             return result;
         }
 
@@ -143,6 +153,9 @@ public class ProjectService {
 
         ProjectDTO result = toProjectDTO(project, board);
         broadcastService.broadcastProjectCreated(result);
+        
+        // Broadcast WebSocket message to project subscribers
+        broadcastProjectCreatedWebSocket(project.getId(), result);
         return result;
     }
 
@@ -198,6 +211,9 @@ public class ProjectService {
         Board board = boards.isEmpty() ? null : boards.get(0);
         ProjectDTO result = toProjectDTO(savedProject, board);
         broadcastService.broadcastProjectUpdated(projectId, result);
+        
+        // Broadcast WebSocket message to project subscribers
+        broadcastProjectUpdatedWebSocket(projectId, result);
         return result;
     }
 
@@ -211,6 +227,9 @@ public class ProjectService {
         
         // Broadcast project deletion to all connected clients
         broadcastService.broadcastProjectDeleted(projectId);
+        
+        // Broadcast WebSocket message to project subscribers
+        broadcastProjectDeletedWebSocket(projectId);
     }
 
     @Transactional
@@ -738,4 +757,101 @@ public class ProjectService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Project description must contain at least 5 words for AI generation");
         }
     }
+
+    /**
+     * Broadcast project creation event via WebSocket to all connected clients
+     * subscribed to this project. Called AFTER project is successfully created in DB.
+     */
+    private void broadcastProjectCreatedWebSocket(UUID projectId, ProjectDTO projectData) {
+        try {
+            // Broadcast to board ID since clients subscribe to board, not project
+            if (projectData.getBoardId() == null) {
+                log.warn("Cannot broadcast PROJECT_CREATED: No board ID in project {}", projectId);
+                return;
+            }
+            
+            Map<String, Object> message = new HashMap<>();
+            message.put("eventType", "PROJECT_CREATED");
+            message.put("type", "PROJECT_CREATED");
+            message.put("projectId", projectId.toString());
+            message.put("projectData", projectData);
+            message.put("timestamp", System.currentTimeMillis());
+            
+            String messageJson = objectMapper.writeValueAsString(message);
+            log.info("Sending PROJECT_CREATED broadcast for board: {} with payload length: {}", projectData.getBoardId(), messageJson.length());
+            webSocketConnectionManager.broadcastToBoard(projectData.getBoardId().toString(), messageJson);
+            log.info("Broadcasted PROJECT_CREATED event for board: {}", projectData.getBoardId());
+        } catch (Exception e) {
+            log.error("Failed to broadcast PROJECT_CREATED event for project {}: {}", projectId, e.getMessage(), e);
+            // Do not re-throw - broadcasting is best-effort
+        }
+    }
+
+    /**
+     * Broadcast project update event via WebSocket to all connected clients
+     * subscribed to this project. Called AFTER project is successfully updated in DB.
+     */
+    private void broadcastProjectUpdatedWebSocket(UUID projectId, ProjectDTO projectData) {
+        try {
+            // Broadcast to board ID since clients subscribe to board, not project
+            if (projectData.getBoardId() == null) {
+                log.warn("Cannot broadcast PROJECT_UPDATED: No board ID in project {}", projectId);
+                return;
+            }
+            
+            Map<String, Object> message = new HashMap<>();
+            message.put("eventType", "PROJECT_UPDATED");
+            message.put("type", "PROJECT_UPDATED");
+            message.put("projectId", projectId.toString());
+            message.put("projectData", projectData);
+            message.put("timestamp", System.currentTimeMillis());
+            
+            String messageJson = objectMapper.writeValueAsString(message);
+            log.info("Sending PROJECT_UPDATED broadcast for board: {} with payload length: {}", projectData.getBoardId(), messageJson.length());
+            webSocketConnectionManager.broadcastToBoard(projectData.getBoardId().toString(), messageJson);
+            log.info("Broadcasted PROJECT_UPDATED event for board: {}", projectData.getBoardId());
+        } catch (Exception e) {
+            log.error("Failed to broadcast PROJECT_UPDATED event for project {}: {}", projectId, e.getMessage(), e);
+            // Do not re-throw - broadcasting is best-effort
+        }
+    }
+
+    /**
+     * Broadcast project deletion event via WebSocket to all connected clients
+     * subscribed to this project. Called AFTER project is successfully marked for deletion in DB.
+     */
+    private void broadcastProjectDeletedWebSocket(UUID projectId) {
+        try {
+            // Fetch project data to get board ID for broadcasting to correct channel
+            Project project = projectRepository.findById(projectId)
+                .orElse(null);
+            
+            if (project == null) {
+                log.warn("Cannot broadcast PROJECT_DELETED: Project {} not found", projectId);
+                return;
+            }
+            
+            List<Board> boards = boardRepository.findByProjectId(projectId);
+            if (boards.isEmpty()) {
+                log.warn("Cannot broadcast PROJECT_DELETED: No board found for project {}", projectId);
+                return;
+            }
+            
+            UUID boardId = boards.get(0).getId();
+            Map<String, Object> message = new HashMap<>();
+            message.put("eventType", "PROJECT_DELETED");
+            message.put("type", "PROJECT_DELETED");
+            message.put("projectId", projectId.toString());
+            message.put("timestamp", System.currentTimeMillis());
+            
+            String messageJson = objectMapper.writeValueAsString(message);
+            log.info("Sending PROJECT_DELETED broadcast for board: {} with payload length: {}", boardId, messageJson.length());
+            webSocketConnectionManager.broadcastToBoard(boardId.toString(), messageJson);
+            log.info("Broadcasted PROJECT_DELETED event for board: {}", boardId);
+        } catch (Exception e) {
+            log.error("Failed to broadcast PROJECT_DELETED event for project {}: {}", projectId, e.getMessage(), e);
+            // Do not re-throw - broadcasting is best-effort
+        }
+    }
 }
+
