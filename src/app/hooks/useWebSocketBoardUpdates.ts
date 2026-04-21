@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import SockJS from 'sockjs-client';
 import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
 import { useProjectStore } from '../store/projectStore';
-import { ENABLE_REALTIME, WS_ENDPOINT } from '../services/runtimeConfig';
+import { ENABLE_REALTIME, WS_ENDPOINT, convertToWebSocketProtocol } from '../services/runtimeConfig';
 
 interface CardDTO {
   id: string;
@@ -68,7 +68,9 @@ export const useWebSocketBoardUpdates = (boardId: string | null, projectId: stri
       return true;
     }
 
+    // Only skip if we have a protocol mismatch: secure page (https) with insecure WS (ws://)
     if (typeof window !== 'undefined' && window.location.protocol === 'https:' && WS_ENDPOINT.startsWith('http://')) {
+      console.warn('[WS] Cannot connect via WS from HTTPS page. Set VITE_WS_ENDPOINT to HTTPS or WSS URL.');
       return true;
     }
 
@@ -90,11 +92,12 @@ export const useWebSocketBoardUpdates = (boardId: string | null, projectId: stri
 
     const connectWebSocket = () => {
       try {
-        console.log('[WS] Attempting to connect to', WS_ENDPOINT);
+        const wsUrl = convertToWebSocketProtocol(WS_ENDPOINT);
+        console.log('[WS] Attempting to connect to', wsUrl, '(converted from', WS_ENDPOINT, ')');
         const stompClient = new Client({
           webSocketFactory: () => {
-            console.log('[WS] Creating SockJS connection');
-            return new SockJS(WS_ENDPOINT);
+            console.log('[WS] Creating SockJS connection to', wsUrl);
+            return new SockJS(wsUrl);
           },
           reconnectDelay: 3000,
           debug: (msg) => {

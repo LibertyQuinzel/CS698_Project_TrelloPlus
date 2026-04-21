@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import SockJS from 'sockjs-client';
 import { Client, StompSubscription } from '@stomp/stompjs';
-import { ENABLE_REALTIME, WS_ENDPOINT } from '../services/runtimeConfig';
+import { ENABLE_REALTIME, WS_ENDPOINT, convertToWebSocketProtocol } from '../services/runtimeConfig';
 
 /**
  * Hook for real-time project list updates via WebSocket
@@ -21,7 +21,9 @@ export const useWebSocketProjectUpdates = (onProjectsChanged: () => void, projec
       return true;
     }
 
+    // Only skip if we have a protocol mismatch: secure page (https) with insecure WS (ws://)
     if (typeof window !== 'undefined' && window.location.protocol === 'https:' && WS_ENDPOINT.startsWith('http://')) {
+      console.warn('[WS-Projects] Cannot connect via WS from HTTPS page. Set VITE_WS_ENDPOINT to HTTPS or WSS URL.');
       return true;
     }
 
@@ -78,13 +80,14 @@ export const useWebSocketProjectUpdates = (onProjectsChanged: () => void, projec
 
     const connectWebSocket = () => {
       try {
-        console.log('[WS-Projects] Attempting to connect to', WS_ENDPOINT);
+        const wsUrl = convertToWebSocketProtocol(WS_ENDPOINT);
+        console.log('[WS-Projects] Attempting to connect to', wsUrl, '(converted from', WS_ENDPOINT, ')');
         const token = localStorage.getItem('authToken');
         
         const stompClient = new Client({
           webSocketFactory: () => {
-            console.log('[WS-Projects] Creating SockJS connection');
-            return new SockJS(WS_ENDPOINT);
+            console.log('[WS-Projects] Creating SockJS connection to', wsUrl);
+            return new SockJS(wsUrl);
           },
           connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
           reconnectDelay: 3000,

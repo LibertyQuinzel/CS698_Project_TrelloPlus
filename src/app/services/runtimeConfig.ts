@@ -22,6 +22,27 @@ const parseBooleanEnv = (value: string | undefined, fallback: boolean): boolean 
   return !['0', 'false', 'no', 'off'].includes(normalized);
 };
 
+/**
+ * Convert HTTPS/HTTP URLs to WebSocket protocols (WSS/WS)
+ * Required because API Gateway endpoints must use WebSocket protocols for WebSocket connections
+ */
+export const convertToWebSocketProtocol = (endpoint: string): string => {
+  try {
+    if (endpoint.startsWith('wss://') || endpoint.startsWith('ws://')) {
+      return endpoint; // Already a WebSocket protocol
+    }
+    if (endpoint.startsWith('https://')) {
+      return endpoint.replace('https://', 'wss://');
+    }
+    if (endpoint.startsWith('http://')) {
+      return endpoint.replace('http://', 'ws://');
+    }
+    return endpoint;
+  } catch {
+    return endpoint;
+  }
+};
+
 export const API_BASE_URL = normalizeBaseUrl(
   env.VITE_API_BASE_URL,
   'https://5vo07e6o58.execute-api.us-east-2.amazonaws.com/prod/api/v1',
