@@ -40,7 +40,12 @@ export const useWebSocketBoardUpdates = (boardId: string | null) => {
           case 'CARD_CREATED': addCardToBoard(message.data); break;
           case 'CARD_UPDATED': updateCardFromRealTime(message.data); break;
           case 'CARD_DELETED': deleteCardFromRealTime(message.stageId, message.cardId); break;
-          case 'CARD_MOVED': updateCardFromRealTime(cardData); break;
+          case 'CARD_MOVED': 
+    updateCardFromRealTime({ 
+      ...cardData, 
+      toStageId: message.toStageId 
+    }); 
+    break;
           case 'STAGE_CREATED': addStageToBoard(message.data); break;
           case 'STAGE_UPDATED': updateStageFromRealTime(message.data); break;
           case 'STAGE_DELETED': deleteStageFromBoard(message.stageId); break;
