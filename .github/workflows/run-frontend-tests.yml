@@ -42,12 +42,18 @@ jobs:
           --collectCoverageFrom=src/app/pages/MeetingChanges.tsx
 
       - name: Publish targeted coverage summary
-        run: |
+        working-directory: frontend 
+        run: | 
+          ls -F coverage/ || echo "Coverage directory empty or missing"
+
           node <<'NODE'
           const fs = require('fs');
-          const summaryPath = 'frontend/coverage/coverage-summary.json';
+          // Since we are already in 'frontend', the path is just 'coverage/...'
+          const summaryPath = 'coverage/coverage-summary.json'; 
+          
           if (!fs.existsSync(summaryPath)) {
-            throw new Error('coverage-summary.json not found');
+            console.error('File not found at:', process.cwd() + '/' + summaryPath);
+            process.exit(1);
           }
 
           const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
