@@ -54,7 +54,8 @@ export function Dashboard() {
   }, [loadProjects]);
 
   // Enable real-time project list updates via WebSocket instead of polling
-  useWebSocketProjectUpdates(handleProjectsChanged, projects.map(p => p.id));
+  // Remove the project IDs map entirely
+useWebSocketProjectUpdates(handleProjectsChanged, "all");
 
   // Empty State
   if (isLoading) {
