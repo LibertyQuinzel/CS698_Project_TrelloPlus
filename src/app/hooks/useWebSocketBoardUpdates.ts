@@ -37,7 +37,14 @@ export const useWebSocketBoardUpdates = (boardId: string | null) => {
         console.log('[WS] Received Message:', message);
         // Route the message to your store
         switch (message.type) {
-          case 'CARD_CREATED': addCardToBoard(message.data); break;
+          case 'CARD_CREATED': 
+  // Strategy: Add the stageId to the card object so the store has the full context
+  const cardWithStage = { 
+    ...message.data, 
+    stageId: message.stageId 
+  };
+  addCardToBoard(cardWithStage); 
+  break;
           case 'CARD_UPDATED': updateCardFromRealTime(message.data); break;
           case 'CARD_DELETED': deleteCardFromRealTime(message.stageId, message.cardId); break;
           case 'CARD_MOVED': 
