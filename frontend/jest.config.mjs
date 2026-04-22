@@ -37,4 +37,11 @@ export default {
     '!src/imports/**',
     '!src/main.tsx',
   ],
+  collectCoverage: true,
+  coverageReporters: ["text", "lcov", "json-summary"],
+  collectCoverageFrom: [
+    "src/app/pages/KanbanBoard.tsx",
+    "src/app/pages/MeetingSummary.tsx",
+    "src/app/pages/MeetingChanges.tsx"
+  ],
 };

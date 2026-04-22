@@ -3,14 +3,6 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
-  "jest":  {
-    "collectCoverage": true,
-    "coverageReporters": ["text", "lcov", "json-summary"],
-    "collectCoverageFrom": [
-      "src/app/pages/KanbanBoard.tsx",
-      "src/app/pages/MeetingSummary.tsx",
-      "src/app/pages/MeetingChanges.tsx"
-    ]},
   "scripts": {
     "build": "vite build",
     "dev": "vite",
