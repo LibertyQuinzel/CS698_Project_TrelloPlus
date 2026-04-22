@@ -33,7 +33,7 @@ public class WebSocketConnectionManager {
     public void initManagementApi() {
         String domainName = System.getenv("DOMAIN_NAME");
         String stage = System.getenv("STAGE");
-        String region = System.getenv("AWS_REGION");
+        String region = "us-east-2";
         
         if (region != null && !region.isBlank()) {
             this.currentRegion = region;

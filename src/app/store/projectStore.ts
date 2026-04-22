@@ -279,44 +279,38 @@ export const useProjectStore = create<ProjectStore>((set) => ({
     return { projects: updatedProjects };
   }),
   
-  updateCardFromRealTime: (card) => set((state) => {
-    console.log('[STORE] updateCardFromRealTime called with card:', card);
-    console.log('[STORE] Current projects:', state.projects);
-    const updatedProjects = state.projects.map((project) => {
-      const taskIndex = project.tasks.findIndex((t) => t.id === card.id);
-      if (taskIndex === -1) {
-        console.log('[STORE] Card not found in project', project.id);
-        return project;
-      }
-      
-      const oldTask = project.tasks[taskIndex];
-      console.log('[STORE] Found task in project', project.id, 'oldTask:', oldTask);
-      console.log('[STORE] Project columns:', project.columns);
-      console.log('[STORE] Updating columnId from', oldTask.columnId, 'to', card.stageId);
-      
-      // Check if the stageId matches a column in this project
-      const columnExists = project.columns.some(col => col.id === card.stageId);
-      console.log('[STORE] Column exists for stageId', card.stageId, '?', columnExists);
-      
-      const updatedTasks = [...project.tasks];
-      updatedTasks[taskIndex] = {
-        ...updatedTasks[taskIndex],
-        title: card.title,
-        description: card.description || '',
-        assignee: card.assigneeId ? {
-          id: card.assigneeId,
-          name: card.assigneeName || 'Unassigned',
-        } : undefined,
-        priority: card.priority || 'MEDIUM',
-        columnId: card.stageId,  // CRITICAL: Update the stage/column ID when card moves
-      };
-      
-      console.log('[STORE] Updated task:', updatedTasks[taskIndex]);
-      return { ...project, tasks: updatedTasks };
-    });
-    console.log('[STORE] Projects after update:', updatedProjects);
-    return { projects: updatedProjects };
-  }),
+updateCardFromRealTime: (card) => set((state) => {
+  const updatedProjects = state.projects.map((project) => {
+    const taskIndex = project.tasks.findIndex((t) => t.id === card.id);
+    
+    // If the task isn't in this project, just return the project as is
+    if (taskIndex === -1) return project;
+    
+    const oldTask = project.tasks[taskIndex];
+    
+    // DEFENSIVE LOOKUP:
+    // Check for 'stageId', then 'toStageId' (often used in moves), 
+    // and default to the existing columnId so we don't lose the card.
+    const newStageId = card.stageId || card.toStageId || oldTask.columnId;
+
+    const updatedTasks = [...project.tasks];
+    updatedTasks[taskIndex] = {
+      ...updatedTasks[taskIndex],
+      title: card.title || oldTask.title,
+      description: card.description || oldTask.description,
+      assignee: card.assigneeId ? {
+        id: card.assigneeId,
+        name: card.assigneeName || 'Unassigned',
+      } : oldTask.assignee,
+      priority: card.priority || oldTask.priority || 'MEDIUM',
+      columnId: newStageId, // Now it will NEVER be undefined
+    };
+    
+    return { ...project, tasks: updatedTasks };
+  });
+  
+  return { projects: updatedProjects };
+}),
   
   deleteCardFromRealTime: (stageId, cardId) => set((state) => ({
     projects: state.projects.map((p) => ({
