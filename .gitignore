@@ -31,7 +31,7 @@ build/
 .vscode-test/
 .history/
 
-# Logs
+# Logs and output
 logs/
 *.log
 npm-debug.log*
@@ -40,6 +40,10 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 agents/
+backend/test-output.log
+backend.log
+frontend.log
+
 # Runtime data
 pids
 *.pid
@@ -123,8 +127,10 @@ dependency-reduced-pom.xml
 spring-boot-build-info.properties
 
 # Java / build artifacts
+*.jar
 *.jar.original
-/backend/*.jar
+*.class
+.classpath
 
 # Gradle cache/build
 .gradle/
@@ -140,3 +146,7 @@ out/
 *.tar.gz
 *.tgz
 *.7z
+
+# Temporary test files
+tmp-*.mjs
+test-output.log

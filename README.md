@@ -36,13 +36,14 @@ TrelloPlus is an intelligent, team-focused project management app with:
 ## Project Structure
 
 ```text
-src/
-  app/
-    components/
-    hooks/
-    pages/
-    services/
-    store/
+frontend/
+  src/
+    app/
+      components/
+      hooks/
+      pages/
+      services/
+      store/
 backend/
   src/main/java/com/flowboard/
   src/main/resources/
@@ -108,6 +109,7 @@ Backend runs at `http://localhost:8080/api/v1`.
 Open another terminal from project root:
 
 ```bash
+cd frontend
 npm install
 npm run dev
 ```
@@ -126,6 +128,7 @@ Frontend runs at `http://localhost:5173`.
 ### Frontend
 
 ```bash
+cd frontend
 npm test
 npm run test:watch
 npm run test:coverage
@@ -289,9 +292,9 @@ sudo systemctl status trelloplus-backend
 This repository currently hardcodes localhost endpoints in frontend code.
 Before building frontend for AWS, update:
 
-- `src/app/services/api.ts`
-- `src/app/hooks/useWebSocketBoardUpdates.ts`
-- `src/app/hooks/useWebSocketProjectUpdates.ts`
+- `frontend/src/app/services/api.ts`
+- `frontend/src/app/hooks/useWebSocketBoardUpdates.ts`
+- `frontend/src/app/hooks/useWebSocketProjectUpdates.ts`
 
 Set them to your production host, for example:
 - API base URL: `https://<your-domain>/api/v1`
@@ -300,7 +303,7 @@ Set them to your production host, for example:
 Then build frontend:
 
 ```bash
-cd /opt/trelloplus
+cd /opt/trelloplus/frontend
 npm install
 npm run build
 ```
@@ -315,7 +318,7 @@ server {
     listen 80;
     server_name _;
 
-    root /opt/trelloplus/dist;
+    root /opt/trelloplus/frontend/dist;
     index index.html;
 
     location / {
@@ -408,6 +411,7 @@ In browser:
 ### Frontend
 
 ```bash
+cd frontend
 npm run dev
 npm run build
 npm test

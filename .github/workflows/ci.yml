@@ -2,27 +2,13 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
-      - master
-      - develop
-      - deployment
-    paths-ignore:
-      - '**/*.md'
-      - docs/**
-      - Screenshots/**
-      - coverage/**
+    branches: [main]
   pull_request:
-    paths-ignore:
-      - '**/*.md'
-      - docs/**
-      - Screenshots/**
-      - coverage/**
-  workflow_dispatch:
+    branches: [main]
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   frontend-tests:
@@ -43,16 +29,15 @@ jobs:
     secrets: inherit
 
   deploy-backend:
-    name: Deploy Backend Lambda
+    name: Deploy Backend & WebSocket Lambda
     needs: integration-tests
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/deploy-aws-lambda.yml
     secrets: inherit
 
   deploy-frontend:
     name: Deploy Frontend Amplify
     needs: deploy-backend
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/deploy-aws-amplify.yml
     secrets: inherit
-
