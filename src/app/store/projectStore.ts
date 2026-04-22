@@ -253,6 +253,13 @@ export const useProjectStore = create<ProjectStore>((set) => ({
   
   // Real-time update methods for WebSocket board changes
   addCardToBoard: (card) => set((state) => {
+    const cardAlreadyExists = state.projects.some((project) =>
+      project.tasks.some((task) => task.id === card.id)
+    );
+    if (cardAlreadyExists) {
+      return state;
+    }
+
     // Find the project and stage based on the card data
     const updatedProjects = state.projects.map((project) => {
       const column = project.columns.find((col) => col.id === card.stageId);
