@@ -11,10 +11,21 @@ jobs:
   deploy-amplify:
     name: Build Frontend and Trigger Amplify Redeploy
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: {node-version: 20, cache: npm}
+        with:
+          node-version: 20
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: frontend/node_modules
+          key: ${{ runner.os }}-npm-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
       - run: npm ci
       - run: npm run build
       - uses: aws-actions/configure-aws-credentials@v4
