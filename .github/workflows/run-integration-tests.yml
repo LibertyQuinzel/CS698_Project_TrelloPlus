@@ -14,7 +14,7 @@ jobs:
         image: postgres:16-alpine
         env:
           POSTGRES_DB: flowboard
-          POSTGRES_USER: flowboard_user
+           POSTGRES_USER: flowboard
           POSTGRES_PASSWORD: flowboard_password
         options: >-
           --health-cmd pg_isready
@@ -46,7 +46,7 @@ jobs:
           DB_HOST: localhost
           DB_PORT: 5432
           DB_NAME: flowboard
-          DB_USER: flowboard_user
+           DB_USERNAME: flowboard
           DB_PASSWORD: flowboard_password
           AWS_REGION: us-east-2
         run: mvn -B -ntp clean package -DskipTests
@@ -65,21 +65,57 @@ jobs:
           DB_HOST: localhost
           DB_PORT: 5432
           DB_NAME: flowboard
-          DB_USER: flowboard_user
+           DB_USERNAME: flowboard
           DB_PASSWORD: flowboard_password
           AWS_REGION: us-east-2
           SERVER_PORT: 8080
         run: |
-          java -jar target/*.jar > /tmp/backend.log 2>&1 &
-          sleep 10
-          curl -f http://localhost:8080/api/v1/health || cat /tmp/backend.log
+          # Find the JAR file
+          JAR_FILE=$(ls -t target/*.jar 2>/dev/null | head -1)
+          if [ -z "$JAR_FILE" ]; then
+            echo "ERROR: No JAR file found in target/"
+            ls -la target/
+            exit 1
+          fi
+          echo "Starting backend with: $JAR_FILE"
+          java -jar "$JAR_FILE" > /tmp/backend.log 2>&1 &
+          BACKEND_PID=$!
+          echo "Backend PID: $BACKEND_PID"
+          
+          # Wait for backend to be ready (up to 60 seconds)
+          for i in {1..30}; do
+            if curl -sf http://localhost:8080/api/v1/health > /dev/null 2>&1; then
+              echo "Backend is ready"
+              exit 0
+            fi
+            echo "Attempt $i: Waiting for backend to be ready..."
+            sleep 2
+          done
+          
+          echo "Backend failed to start. Logs:"
+          cat /tmp/backend.log
+          exit 1
 
       - name: Start frontend dev server in background
         working-directory: frontend
         run: |
           npm run dev > /tmp/frontend.log 2>&1 &
-          sleep 10
-          curl -f http://localhost:5173 || cat /tmp/frontend.log
+          FRONTEND_PID=$!
+          echo "Frontend PID: $FRONTEND_PID"
+          
+          # Wait for frontend to be ready (up to 30 seconds)
+          for i in {1..15}; do
+            if curl -sf http://localhost:5173 > /dev/null 2>&1; then
+              echo "Frontend is ready"
+              exit 0
+            fi
+            echo "Attempt $i: Waiting for frontend to be ready..."
+            sleep 2
+          done
+          
+          echo "Frontend failed to start. Logs:"
+          cat /tmp/frontend.log
+          exit 1
 
       - name: Run integration tests
         working-directory: frontend
