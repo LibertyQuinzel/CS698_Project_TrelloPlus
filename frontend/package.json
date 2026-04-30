@@ -8,7 +8,7 @@
     "dev": "vite",
     "test":"jest",
     "test:frontend:concurrency": "node ../scripts/playwright_frontend_login_10.mjs",
-    "test:integration:fullstack": "node ../scripts/playwright_fullstack_integration.mjs"
+    "test:integration:fullstack": "node ./playwright-integration.mjs"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
