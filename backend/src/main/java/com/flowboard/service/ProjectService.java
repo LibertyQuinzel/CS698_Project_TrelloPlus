@@ -43,6 +43,7 @@ public class ProjectService {
     private final CardRepository cardRepository;
     private final UserRepository userRepository;
     private final ProjectMemberRepository projectMemberRepository;
+    private final MeetingMemberRepository meetingMemberRepository;
     private final AIEngine aiEngine;
     private final BoardGenerator boardGenerator;
     private final BoardBroadcastService broadcastService;
@@ -524,6 +525,9 @@ public class ProjectService {
         }
 
         projectMemberRepository.deleteMember(projectId, targetUserId);
+        
+        // Cascade: Remove user from all meetings in this project
+        meetingMemberRepository.deleteUserFromProjectMeetings(projectId, targetUserId);
 
         // Broadcast team member removal to all connected clients
         broadcastService.broadcastTeamMemberRemoved(projectId, targetUserId);
