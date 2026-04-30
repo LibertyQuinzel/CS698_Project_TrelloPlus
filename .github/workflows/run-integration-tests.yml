@@ -55,6 +55,10 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: npx playwright install --with-deps
+
       - name: Start backend in background
         working-directory: backend
         env:
