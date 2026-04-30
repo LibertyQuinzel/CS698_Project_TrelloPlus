@@ -10,7 +10,7 @@ import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { useProjectStore, type BoardTask, type BoardColumn } from '../store/projectStore';
 import { toast } from 'sonner';
-import { apiService, mapProjectResponseToProject } from '../services/api';
+import { apiService, mapCardResponseToTask, mapProjectResponseToProject } from '../services/api';
 
 export type { BoardTask as Task };
 
@@ -24,6 +24,13 @@ export function KanbanBoard() {
   );
   const {
     updateProject,
+    moveTask: moveTaskInStore,
+    updateTask: updateTaskInStore,
+    deleteTask: deleteTaskInStore,
+    addTask: addTaskInStore,
+    addColumnToProject,
+    renameColumn,
+    deleteColumn,
   } = useProjectStore();
 
   const [selectedTask, setSelectedTask] = useState<BoardTask | null>(null);
@@ -45,9 +52,9 @@ export function KanbanBoard() {
 
   const handleMoveTask = async (taskId: string, newColumnId: string) => {
     try {
-      await apiService.moveCard(taskId, { target_stage_id: newColumnId });
-      // Note: Task will be moved via WebSocket CARD_MOVED message (updateCardFromRealTime)
-      // This prevents duplicate moves from both API response and WebSocket
+      const movedCard = await apiService.moveCard(taskId, { target_stage_id: newColumnId });
+      mapCardResponseToTask(movedCard);
+      moveTaskInStore(project.id, taskId, newColumnId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to move task');
     }
@@ -55,14 +62,14 @@ export function KanbanBoard() {
 
   const handleUpdateTask = async (updatedTask: BoardTask) => {
     try {
-      await apiService.updateCard(updatedTask.id, {
+      const updatedCard = await apiService.updateCard(updatedTask.id, {
         title: updatedTask.title,
         description: updatedTask.description,
         priority: updatedTask.priority,
         assignee_id: updatedTask.assignee?.id ?? null,
       });
-      // Note: Task will be updated via WebSocket CARD_UPDATED message (updateCardFromRealTime)
-      // This prevents duplicate updates from both API response and WebSocket
+      const mappedTask = mapCardResponseToTask(updatedCard);
+      updateTaskInStore(project.id, mappedTask);
       setSelectedTask(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to update task');
@@ -72,8 +79,7 @@ export function KanbanBoard() {
   const handleDeleteTask = async (taskId: string) => {
     try {
       await apiService.deleteCard(taskId);
-      // Note: Task will be deleted via WebSocket CARD_DELETED message (deleteCardFromRealTime)
-      // This prevents duplicate deletions from both API response and WebSocket
+      deleteTaskInStore(project.id, taskId);
       setSelectedTask(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to delete task');
@@ -82,14 +88,15 @@ export function KanbanBoard() {
 
   const handleCreateTask = async (taskData: { title: string; description: string; priority: BoardTask['priority']; columnId: string; assigneeId?: string }) => {
     try {
-      await apiService.createCard(taskData.columnId, {
+      const createdCard = await apiService.createCard(taskData.columnId, {
         title: taskData.title,
         description: taskData.description,
         priority: taskData.priority,
         assignee_id: taskData.assigneeId ?? null,
       });
-      // Note: Task will be added via WebSocket CARD_CREATED message (addCardToBoard)
-      // This prevents duplicate entries from both API response and WebSocket
+      const mappedTask = mapCardResponseToTask(createdCard);
+      addTaskInStore(project.id, mappedTask);
+      setCreateTaskColumnId(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to create task');
     }
@@ -135,8 +142,11 @@ export function KanbanBoard() {
         title: newColumnTitle.trim(),
         color: colors[colorIndex],
       });
-      // Note: Column will be added via WebSocket STAGE_CREATED message (addStageToBoard)
-      // This prevents duplicate additions from both API response and WebSocket
+      addColumnToProject(project.id, {
+        id: created.id,
+        title: created.title,
+        color: created.color,
+      });
       setNewColumnTitle('');
       setAddingColumn(false);
       toast.success(`Column "${newColumnTitle.trim()}" added`);
@@ -154,8 +164,7 @@ export function KanbanBoard() {
     if (editingColumnId && editingColumnTitle.trim()) {
       try {
         await apiService.renameStage(editingColumnId, { title: editingColumnTitle.trim() });
-        // Note: Column will be updated via WebSocket STAGE_UPDATED message (updateStageFromRealTime)
-        // This prevents duplicate updates from both API response and WebSocket
+        renameColumn(project.id, editingColumnId, editingColumnTitle.trim());
         toast.success('Column renamed');
         // Only clear state on success
         setEditingColumnId(null);
@@ -179,8 +188,7 @@ export function KanbanBoard() {
     if (window.confirm(msg)) {
       try {
         await apiService.deleteStage(columnId);
-        // Note: Column will be deleted via WebSocket STAGE_DELETED message (deleteStageFromBoard)
-        // This prevents duplicate deletions from both API response and WebSocket
+        deleteColumn(project.id, columnId);
         toast.success('Column deleted');
       } catch (error) {
         toast.error(error instanceof Error ? error.message : 'Failed to delete column');
