@@ -64,6 +64,9 @@ class ProjectServiceTest {
     private ProjectMemberRepository projectMemberRepository;
 
     @Mock
+    private MeetingMemberRepository meetingMemberRepository;
+
+    @Mock
     private AIEngine aiEngine;
 
     @Mock
@@ -1791,6 +1794,7 @@ class ProjectServiceTest {
         projectService.removeTeamMember(projectId, member1Id, ownerId);
 
         verify(projectMemberRepository).deleteMember(projectId, member1Id);
+        verify(meetingMemberRepository).deleteUserFromProjectMeetings(projectId, member1Id);
         verify(broadcastService).broadcastTeamMemberRemoved(projectId, member1Id);
     }
 
