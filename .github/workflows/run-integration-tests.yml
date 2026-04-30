@@ -65,6 +65,14 @@ jobs:
         with:
           node-version: 20
 
+      - name: Cache Node modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            frontend/node_modules
+            ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('frontend/package-lock.json') }}
+
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci --verbose
@@ -75,6 +83,12 @@ jobs:
           distribution: temurin
           java-version: 21
           cache: maven
+
+      - name: Cache Maven repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('backend/pom.xml') }}
 
       - name: Start backend
         run: |
@@ -125,14 +139,16 @@ jobs:
           npx playwright install --with-deps
           npm run test:integration:fullstack
 
-      - name: Upload logs on failure
-        if: failure()
+      - name: Upload test artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: integration-test-logs
+          name: integration-test-artifacts
           path: |
             backend.log
             frontend.log
+            frontend/test-results/**
+            frontend/playwright-report/**
 
       - name: Stop services
         if: always()
