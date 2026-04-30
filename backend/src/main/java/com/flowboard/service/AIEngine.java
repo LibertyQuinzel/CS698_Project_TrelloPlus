@@ -31,7 +31,7 @@ public class AIEngine {
     private static final int MIN_STAGE_COUNT = 4;
     private static final int MAX_STAGE_COUNT = 8;
     private static final String[] DEFAULT_STAGE_TITLES = {
-        "Backlog", "To Do", "In Progress", "Review", "Testing", "Ready", "Blocked", "Done"
+        "Stage 1", "Stage 2", "Stage 3", "Stage 4", "Stage 5", "Stage 6", "Stage 7", "Stage 8"
     };
     private static final String[] DEFAULT_STAGE_COLORS = {
         "bg-slate-100", "bg-gray-100", "bg-blue-100", "bg-amber-100", "bg-violet-100", "bg-cyan-100", "bg-rose-100", "bg-green-100"
@@ -402,11 +402,11 @@ public class AIEngine {
     }
 
     private String buildProjectPrompt(String projectName, String description) {
-        return "You are generating a practical kanban plan for a software project. "
+        return "You are generating a practical kanban plan for a project. "
             + "Return only valid JSON with this exact schema: "
             + "{\"stages\":[{\"title\":\"string\"}],\"tasks\":[{\"title\":\"string\",\"description\":\"string\",\"priority\":\"LOW|MEDIUM|HIGH|CRITICAL\",\"stageTitle\":\"string\"}]}. "
             + "Generate 4 to 8 stages depending on complexity and 6 to 20 tasks. "
-            + "Stage titles must be short, unique, and workflow-oriented. "
+            + "Stage titles should reflect the actual workflow or phases of this project, not generic names. "
             + "Tasks must be concrete and mapped to an existing stageTitle. "
             + "Distribute tasks across multiple stages, not only one stage. "
             + "Project name: " + safeText(projectName) + ". "
@@ -416,8 +416,8 @@ public class AIEngine {
     private String buildProjectStagesPrompt(String projectName, String description) {
         return "Return only valid JSON with this exact schema: "
             + "{\"stages\":[{\"title\":\"string\"}]}. "
-            + "Create 4 to 8 unique workflow stages for a software project. "
-            + "Use concise, practical stage names. "
+            + "Create 4 to 8 unique workflow stages for this project. "
+            + "Use concise, practical stage names that reflect the actual workflow or phases, not generic names. "
             + "Project name: " + safeText(projectName) + ". "
             + "Project description: " + safeText(description) + ".";
     }

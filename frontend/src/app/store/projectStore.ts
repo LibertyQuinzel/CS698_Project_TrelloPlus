@@ -34,6 +34,7 @@ export interface BoardTask {
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   createdDate: string;
   columnId: string;
+  position?: number;
 }
 
 export interface Project {
@@ -276,6 +277,7 @@ export const useProjectStore = create<ProjectStore>((set) => ({
         priority: card.priority || 'MEDIUM',
         createdDate: card.createdDate || new Date().toISOString(),
         columnId: card.stageId,
+        position: card.position,
       };
       
       return {

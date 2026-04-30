@@ -20,8 +20,8 @@ export const useWebSocketProjectUpdates = (onProjectsChanged: () => void, worksp
       console.log('[WS-Projects] Connected to API Gateway');
       // Subscribe to the global workspace channel
       socket.send(JSON.stringify({ 
-        action: 'subscribe_workspace', 
-        workspaceId: "all"
+        action: 'subscribe',
+        boardId: 'all',
       }));
     };
 

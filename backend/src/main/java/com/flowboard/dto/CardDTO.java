@@ -21,4 +21,5 @@ public class CardDTO {
     @JsonProperty("created_at")
     private LocalDateTime createdAt;
     private UserDTO assignee;
+    private Integer position;
 }

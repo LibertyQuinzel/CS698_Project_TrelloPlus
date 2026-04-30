@@ -24,6 +24,33 @@ export function CreateProject() {
   const [generatedColumns, setGeneratedColumns] = useState<BoardColumn[]>([]);
   const [generatedTasks, setGeneratedTasks] = useState<BoardTask[]>([]);
   const [createdProjectId, setCreatedProjectId] = useState<string | null>(null);
+  const [pendingGeneratedProject, setPendingGeneratedProject] = useState<ReturnType<typeof mapProjectResponseToProject> | null>(null);
+
+  const resetPreviewState = () => {
+    setShowPreview(false);
+    setGeneratedColumns([]);
+    setGeneratedTasks([]);
+    setCreatedProjectId(null);
+    setPendingGeneratedProject(null);
+    setFormState('default');
+  };
+
+  const handleBackToEdit = async () => {
+    const draftProjectId = createdProjectId;
+    if (!draftProjectId) {
+      resetPreviewState();
+      return;
+    }
+
+    try {
+      await apiService.deleteProject(draftProjectId);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to discard generated project');
+      return;
+    }
+
+    resetPreviewState();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,10 +90,10 @@ export function CreateProject() {
 
       const newProject = mapProjectResponseToProject(response);
 
-      addProject(newProject);
       setFormState('success');
       setShowPreview(true);
       setCreatedProjectId(response.id);
+      setPendingGeneratedProject(newProject);
       
       // Store generated tasks for preview
       setGeneratedColumns(newProject.columns);
@@ -116,11 +143,12 @@ export function CreateProject() {
   };
 
   const handleConfirmBoard = () => {
-    if (!createdProjectId) {
+    if (!createdProjectId || !pendingGeneratedProject) {
       toast.error('Project ID not found. Please try again.');
       return;
     }
     
+    addProject(pendingGeneratedProject);
     toast.success('Project created successfully!');
     navigate(`/project/${createdProjectId}?tab=board`);
   };
@@ -255,7 +283,16 @@ export function CreateProject() {
         </form>
 
         {/* Success Preview Modal */}
-        <Dialog open={showPreview} onOpenChange={setShowPreview}>
+        <Dialog
+          open={showPreview}
+          onOpenChange={(open) => {
+            if (!open) {
+              void handleBackToEdit();
+              return;
+            }
+            setShowPreview(open);
+          }}
+        >
           <DialogContent className="max-w-[95vw] md:max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -300,7 +337,7 @@ export function CreateProject() {
             </div>
 
             <div className="flex gap-3 mt-6">
-              <Button variant="outline" onClick={() => setShowPreview(false)} className="flex-1">
+              <Button variant="outline" onClick={() => void handleBackToEdit()} className="flex-1">
                 Back to Edit
               </Button>
               <Button onClick={handleConfirmBoard} className="flex-1">

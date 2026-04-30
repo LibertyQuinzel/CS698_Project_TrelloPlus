@@ -81,6 +81,7 @@ export interface ProjectResponse {
     priority: string;
     column_id: string;
     created_at: string;
+    position?: number;
     assignee?: {
       id: string;
       email?: string;
@@ -319,6 +320,7 @@ export const mapCardResponseToTask = (task: ProjectResponse['tasks'][number]): B
   priority: task.priority as BoardTask['priority'],
   columnId: task.column_id,
   createdDate: task.created_at,
+  position: task.position,
 });
 
 export const mapProjectResponseToProject = (response: ProjectResponse): Project => ({

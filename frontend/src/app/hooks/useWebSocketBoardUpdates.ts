@@ -12,6 +12,7 @@ export const useWebSocketBoardUpdates = (boardId: string | null) => {
     deleteStageFromBoard,
     updateStageFromRealTime,
     addStageToBoard,
+    updateProject,
   } = useProjectStore();
 
   useEffect(() => {
@@ -56,6 +57,49 @@ export const useWebSocketBoardUpdates = (boardId: string | null) => {
           case 'STAGE_CREATED': addStageToBoard(message.data); break;
           case 'STAGE_UPDATED': updateStageFromRealTime(message.data); break;
           case 'STAGE_DELETED': deleteStageFromBoard(message.stageId); break;
+          case 'PROJECT_UPDATED': {
+            const projectData = message.projectData;
+            if (!projectData?.id) break;
+
+            updateProject(projectData.id, {
+              name: projectData.name,
+              description: projectData.description,
+              boardId: projectData.boardId,
+              members: Array.isArray(projectData.members)
+                ? projectData.members.map((member: any) => ({
+                    id: member.id,
+                    name: member.fullName || member.username || member.email || 'Unknown User',
+                    email: member.email,
+                    role: member.role === 'owner' || member.role === 'viewer' ? member.role : 'editor',
+                  }))
+                : [],
+              columns: Array.isArray(projectData.columns)
+                ? projectData.columns.map((column: any) => ({
+                    id: column.id,
+                    title: column.title,
+                    color: column.color,
+                  }))
+                : [],
+              tasks: Array.isArray(projectData.tasks)
+                ? projectData.tasks.map((task: any) => ({
+                    id: task.id,
+                    title: task.title,
+                    description: task.description || '',
+                    assignee: task.assignee
+                      ? {
+                          id: task.assignee.id,
+                          name: task.assignee.fullName || task.assignee.username || task.assignee.email || 'Unknown User',
+                        }
+                      : undefined,
+                    priority: task.priority || 'MEDIUM',
+                    createdDate: task.createdAt,
+                    columnId: task.stageId,
+                    position: task.position,
+                  }))
+                : [],
+            });
+            break;
+          }
         }
       } catch (err) {
         console.error('[WS] Error parsing message', err);
@@ -63,7 +107,7 @@ export const useWebSocketBoardUpdates = (boardId: string | null) => {
     };
 
     return () => socket.close();
-  }, [boardId]);
+  }, [boardId, addCardToBoard, addStageToBoard, deleteCardFromRealTime, deleteStageFromBoard, updateCardFromRealTime, updateProject, updateStageFromRealTime]);
 
   return socketRef.current;
 };

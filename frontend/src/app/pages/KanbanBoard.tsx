@@ -10,7 +10,7 @@ import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { useProjectStore, type BoardTask, type BoardColumn } from '../store/projectStore';
 import { toast } from 'sonner';
-import { apiService, mapCardResponseToTask, mapProjectResponseToProject } from '../services/api';
+import { apiService, mapProjectResponseToProject } from '../services/api';
 
 export type { BoardTask as Task };
 
@@ -23,13 +23,6 @@ export function KanbanBoard() {
     s.projects.find((p) => p.boardId === projectId || p.id === projectId)
   );
   const {
-    moveTask,
-    updateTask,
-    deleteTask,
-    addTask,
-    addColumnToProject,
-    renameColumn,
-    deleteColumn,
     updateProject,
   } = useProjectStore();
 
@@ -52,9 +45,9 @@ export function KanbanBoard() {
 
   const handleMoveTask = async (taskId: string, newColumnId: string) => {
     try {
-      const moved = await apiService.moveCard(taskId, { target_stage_id: newColumnId });
-      const mappedTask = mapCardResponseToTask(moved);
-      moveTask(project.id, mappedTask.id, mappedTask.columnId);
+      await apiService.moveCard(taskId, { target_stage_id: newColumnId });
+      // Note: Task will be moved via WebSocket CARD_MOVED message (updateCardFromRealTime)
+      // This prevents duplicate moves from both API response and WebSocket
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to move task');
     }
@@ -62,13 +55,14 @@ export function KanbanBoard() {
 
   const handleUpdateTask = async (updatedTask: BoardTask) => {
     try {
-      const updated = await apiService.updateCard(updatedTask.id, {
+      await apiService.updateCard(updatedTask.id, {
         title: updatedTask.title,
         description: updatedTask.description,
         priority: updatedTask.priority,
         assignee_id: updatedTask.assignee?.id ?? null,
       });
-      updateTask(project.id, mapCardResponseToTask(updated));
+      // Note: Task will be updated via WebSocket CARD_UPDATED message (updateCardFromRealTime)
+      // This prevents duplicate updates from both API response and WebSocket
       setSelectedTask(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to update task');
@@ -78,7 +72,8 @@ export function KanbanBoard() {
   const handleDeleteTask = async (taskId: string) => {
     try {
       await apiService.deleteCard(taskId);
-      deleteTask(project.id, taskId);
+      // Note: Task will be deleted via WebSocket CARD_DELETED message (deleteCardFromRealTime)
+      // This prevents duplicate deletions from both API response and WebSocket
       setSelectedTask(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to delete task');
@@ -87,13 +82,14 @@ export function KanbanBoard() {
 
   const handleCreateTask = async (taskData: { title: string; description: string; priority: BoardTask['priority']; columnId: string; assigneeId?: string }) => {
     try {
-      const created = await apiService.createCard(taskData.columnId, {
+      await apiService.createCard(taskData.columnId, {
         title: taskData.title,
         description: taskData.description,
         priority: taskData.priority,
         assignee_id: taskData.assigneeId ?? null,
       });
-      addTask(project.id, mapCardResponseToTask(created));
+      // Note: Task will be added via WebSocket CARD_CREATED message (addCardToBoard)
+      // This prevents duplicate entries from both API response and WebSocket
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to create task');
     }
@@ -139,15 +135,11 @@ export function KanbanBoard() {
         title: newColumnTitle.trim(),
         color: colors[colorIndex],
       });
-      const newColumn: BoardColumn = {
-        id: created.id,
-        title: created.title,
-        color: created.color,
-      };
-      addColumnToProject(project.id, newColumn);
+      // Note: Column will be added via WebSocket STAGE_CREATED message (addStageToBoard)
+      // This prevents duplicate additions from both API response and WebSocket
       setNewColumnTitle('');
       setAddingColumn(false);
-      toast.success(`Column "${newColumn.title}" added`);
+      toast.success(`Column "${newColumnTitle.trim()}" added`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to add column');
     }
@@ -162,7 +154,8 @@ export function KanbanBoard() {
     if (editingColumnId && editingColumnTitle.trim()) {
       try {
         await apiService.renameStage(editingColumnId, { title: editingColumnTitle.trim() });
-        renameColumn(project.id, editingColumnId, editingColumnTitle.trim());
+        // Note: Column will be updated via WebSocket STAGE_UPDATED message (updateStageFromRealTime)
+        // This prevents duplicate updates from both API response and WebSocket
         toast.success('Column renamed');
         // Only clear state on success
         setEditingColumnId(null);
@@ -186,7 +179,8 @@ export function KanbanBoard() {
     if (window.confirm(msg)) {
       try {
         await apiService.deleteStage(columnId);
-        deleteColumn(project.id, columnId);
+        // Note: Column will be deleted via WebSocket STAGE_DELETED message (deleteStageFromBoard)
+        // This prevents duplicate deletions from both API response and WebSocket
         toast.success('Column deleted');
       } catch (error) {
         toast.error(error instanceof Error ? error.message : 'Failed to delete column');
@@ -195,7 +189,15 @@ export function KanbanBoard() {
   };
 
   const getTasksByColumn = (columnId: string) => {
-    return project.tasks.filter((task) => task.columnId === columnId);
+    return project.tasks
+      .filter((task) => task.columnId === columnId)
+      .sort((a, b) => {
+        // Sort by position if available, otherwise by creation date as fallback
+        if (a.position !== undefined && b.position !== undefined) {
+          return a.position - b.position;
+        }
+        return new Date(a.createdDate).getTime() - new Date(b.createdDate).getTime();
+      });
   };
 
   const createTaskColumn = project.columns.find((c) => c.id === createTaskColumnId);

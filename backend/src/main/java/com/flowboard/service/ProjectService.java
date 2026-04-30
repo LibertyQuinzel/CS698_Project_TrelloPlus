@@ -466,6 +466,7 @@ public class ProjectService {
         
         // Broadcast team member addition to all connected clients
         broadcastService.broadcastTeamMemberAdded(projectId, result);
+        broadcastProjectMembersUpdatedWebSocket(projectId);
         
         return result;
     }
@@ -500,6 +501,7 @@ public class ProjectService {
         
         // Broadcast team member role change to all connected clients
         broadcastService.broadcastTeamMemberRoleChanged(projectId, targetUserId, role);
+        broadcastProjectMembersUpdatedWebSocket(projectId);
         
         return result;
     }
@@ -525,6 +527,7 @@ public class ProjectService {
 
         // Broadcast team member removal to all connected clients
         broadcastService.broadcastTeamMemberRemoved(projectId, targetUserId);
+        broadcastProjectMembersUpdatedWebSocket(projectId);
     }
 
     private ProjectDTO toProjectDTO(Project project, Board board) {
@@ -532,6 +535,10 @@ public class ProjectService {
         if (board != null) {
             stages = board.getStages().stream()
                 .filter(s -> !Boolean.TRUE.equals(s.getIsDeletionMarked()))
+                .sorted(Comparator.comparing(
+                    Stage::getPosition,
+                    Comparator.nullsLast(Comparator.naturalOrder())
+                ))
                 .map(this::toStageDTO)
                 .collect(Collectors.toList());
         }
@@ -562,6 +569,7 @@ public class ProjectService {
 
         List<CardDTO> cards = stageCards.stream()
             .filter(c -> !Boolean.TRUE.equals(c.getIsDeletionMarked()))
+            .sorted(Comparator.comparing(Card::getPosition))
             .map(this::toCardDTO)
             .collect(Collectors.toList());
 
@@ -582,6 +590,7 @@ public class ProjectService {
             .stageId(card.getStage().getId())
             .createdAt(card.getCreatedAt())
             .assignee(card.getAssignee() != null ? toUserDTO(card.getAssignee(), ProjectMemberRole.VIEWER) : null)
+            .position(card.getPosition())
             .build();
     }
 
@@ -780,6 +789,7 @@ public class ProjectService {
             String messageJson = objectMapper.writeValueAsString(message);
             log.info("Sending PROJECT_CREATED broadcast for board: {} with payload length: {}", projectData.getBoardId(), messageJson.length());
             webSocketConnectionManager.broadcastToBoard(projectData.getBoardId().toString(), messageJson);
+            webSocketConnectionManager.broadcastToBoard("all", messageJson);
             log.info("Broadcasted PROJECT_CREATED event for board: {}", projectData.getBoardId());
         } catch (Exception e) {
             log.error("Failed to broadcast PROJECT_CREATED event for project {}: {}", projectId, e.getMessage(), e);
@@ -809,6 +819,7 @@ public class ProjectService {
             String messageJson = objectMapper.writeValueAsString(message);
             log.info("Sending PROJECT_UPDATED broadcast for board: {} with payload length: {}", projectData.getBoardId(), messageJson.length());
             webSocketConnectionManager.broadcastToBoard(projectData.getBoardId().toString(), messageJson);
+            webSocketConnectionManager.broadcastToBoard("all", messageJson);
             log.info("Broadcasted PROJECT_UPDATED event for board: {}", projectData.getBoardId());
         } catch (Exception e) {
             log.error("Failed to broadcast PROJECT_UPDATED event for project {}: {}", projectId, e.getMessage(), e);
@@ -847,10 +858,30 @@ public class ProjectService {
             String messageJson = objectMapper.writeValueAsString(message);
             log.info("Sending PROJECT_DELETED broadcast for board: {} with payload length: {}", boardId, messageJson.length());
             webSocketConnectionManager.broadcastToBoard(boardId.toString(), messageJson);
+            webSocketConnectionManager.broadcastToBoard("all", messageJson);
             log.info("Broadcasted PROJECT_DELETED event for board: {}", boardId);
         } catch (Exception e) {
             log.error("Failed to broadcast PROJECT_DELETED event for project {}: {}", projectId, e.getMessage(), e);
             // Do not re-throw - broadcasting is best-effort
+        }
+    }
+
+    private void broadcastProjectMembersUpdatedWebSocket(UUID projectId) {
+        try {
+            Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
+
+            List<Board> boards = boardRepository.findByProjectId(projectId);
+            Board board = boards.isEmpty() ? null : boards.get(0);
+            if (board == null) {
+                log.warn("Cannot broadcast PROJECT_UPDATED for project {}: No board found", projectId);
+                return;
+            }
+
+            ProjectDTO updatedProject = toProjectDTO(project, board);
+            broadcastProjectUpdatedWebSocket(projectId, updatedProject);
+        } catch (Exception e) {
+            log.error("Failed to broadcast PROJECT_UPDATED after member change for project {}: {}", projectId, e.getMessage(), e);
         }
     }
 }

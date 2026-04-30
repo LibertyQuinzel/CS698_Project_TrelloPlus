@@ -22,7 +22,7 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
         "LEFT JOIN project_members pm ON pm.project_id = p.id " +
         "WHERE (p.owner_id = :userId OR pm.user_id = :userId) " +
         "AND (p.is_deletion_marked = false OR p.is_deletion_marked IS NULL) " +
-        "ORDER BY p.created_at DESC", nativeQuery = true)
+        "ORDER BY p.created_at DESC, p.id DESC", nativeQuery = true)
     List<Project> findActiveProjectsForUserId(@Param("userId") UUID userId);
 
     @Query("SELECT p FROM Project p WHERE p.owner = :owner AND LOWER(p.name) = LOWER(:name) " +
