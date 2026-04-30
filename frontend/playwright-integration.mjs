@@ -88,7 +88,10 @@ async function parseBody(response) {
 }
 
 async function apiRequest(path, options = {}) {
-  const response = await fetch(apiUrl(path), options);
+  const url = apiUrl(path);
+  console.log(`      [apiRequest] ${options.method || 'GET'} ${url}`);
+  const response = await fetch(url, options);
+  console.log(`      [apiRequest] Response: ${response.status}`);
   const body = await parseBody(response).catch(() => null);
   return { response, body };
 }
@@ -155,7 +158,9 @@ async function registerFreshIdentity(identity) {
 }
 
 async function loginViaApi(identity) {
+  console.log('    [loginViaApi] Attempting login for:', identity.email);
   for (let attempt = 1; attempt <= AUTH_RETRY_ATTEMPTS; attempt += 1) {
+    console.log(`    [loginViaApi] Attempt ${attempt}/${AUTH_RETRY_ATTEMPTS}`);
     const { response, body } = await apiRequest('/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -163,10 +168,12 @@ async function loginViaApi(identity) {
     });
 
     if (response.ok && body?.token) {
+      console.log('    [loginViaApi] Login successful');
       return body;
     }
 
     if (response.status === 429 && attempt < AUTH_RETRY_ATTEMPTS) {
+      console.log(`    [loginViaApi] Rate limited, waiting ${authBackoffMs(attempt)}ms...`);
       await delay(authBackoffMs(attempt));
       continue;
     }
@@ -179,9 +186,12 @@ async function loginViaApi(identity) {
 }
 
 async function ensurePrimaryIdentityAndToken() {
+  console.log('  [ensurePrimaryIdentityAndToken] Starting...');
   if (!state.primaryIdentity) {
+    console.log('  [ensurePrimaryIdentityAndToken] Creating primary identity');
     if (CREATE_PRIMARY_USER_EACH_RUN) {
       state.primaryIdentity = newIdentity('primary');
+      console.log('  [ensurePrimaryIdentityAndToken] Registering fresh identity:', state.primaryIdentity.email);
       await registerFreshIdentity(state.primaryIdentity);
     } else if (PRIMARY_TEST_EMAIL) {
       state.primaryIdentity = {
@@ -191,12 +201,15 @@ async function ensurePrimaryIdentityAndToken() {
       };
     } else {
       state.primaryIdentity = newIdentity('primary');
+      console.log('  [ensurePrimaryIdentityAndToken] Ensuring registered:', state.primaryIdentity.email);
       await ensureRegistered(state.primaryIdentity);
     }
   }
 
+  console.log('  [ensurePrimaryIdentityAndToken] Logging in:', state.primaryIdentity.email);
   const login = await loginViaApi(state.primaryIdentity);
   state.token = login.token;
+  console.log('  [ensurePrimaryIdentityAndToken] Token acquired');
 }
 
 async function ensureSecondaryIdentity() {
@@ -1296,10 +1309,19 @@ async function runCase(testId, fn) {
 }
 
 async function main() {
+  console.log('=== INTEGRATION TEST STARTING ===');
+  console.log(`HEADLESS=${HEADLESS}`);
+  console.log(`FRONTEND_BASE=${FRONTEND_BASE}`);
+  console.log(`BACKEND_BASE=${BACKEND_BASE}`);
+  
+  console.log('Launching chromium browser...');
   const browser = await chromium.launch({ headless: HEADLESS });
+  console.log('Browser launched successfully');
 
   try {
+    console.log('Ensuring primary identity and token...');
     await ensurePrimaryIdentityAndToken();
+    console.log('Primary identity and token ready');
 
     const testCases = [
       ['INT-001-IT-01', () => test_INT_001_IT_01(browser)],
@@ -1346,8 +1368,11 @@ async function main() {
 
     const results = [];
     for (const [testId, testFn] of testCases) {
+      console.log(`Running test: ${testId}...`);
       results.push(await runCase(testId, testFn));
     }
+
+    console.log('All tests completed');
 
     const failed = results.filter((r) => !r.ok);
     const skipped = results.filter((r) => r.skipped);
@@ -1381,8 +1406,18 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error('INTEGRATION_RESULT=FAIL');
-  console.error(error);
+// Force exit after 30 minutes to prevent indefinite hangs
+const timeoutHandle = setTimeout(() => {
+  console.error('ERROR: Test suite exceeded 30-minute timeout');
   process.exit(1);
-});
+}, 30 * 60 * 1000);
+
+main()
+  .catch((error) => {
+    console.error('INTEGRATION_RESULT=FAIL');
+    console.error(error);
+    process.exit(1);
+  })
+  .finally(() => {
+    clearTimeout(timeoutHandle);
+  });

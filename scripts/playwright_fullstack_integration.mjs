@@ -1,19 +1,5 @@
 import { createRequire } from 'module';
 
-// Resolve `playwright` from the workspace frontend installation when this
-// script is executed from the `scripts/` directory. When run inside GitHub
-// Actions the `devDependency` is installed under `frontend/node_modules`,
-// so attempt to require from the script location first and fall back to the
-// frontend package path.
-let chromium;
-try {
-  const require = createRequire(import.meta.url);
-  chromium = require('playwright').chromium;
-} catch (err) {
-  const requireFrontend = createRequire(new URL('../frontend/package.json', import.meta.url));
-  chromium = requireFrontend('playwright').chromium;
-}
-
 function firstNonEmptyEnv(...keys) {
   for (const key of keys) {
     const value = process.env[key];
