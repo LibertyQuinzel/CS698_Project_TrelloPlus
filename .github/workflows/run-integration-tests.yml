@@ -118,6 +118,8 @@ jobs:
 
       - name: Run integration tests
         working-directory: frontend
+        env:
+          NODE_PATH: ./node_modules
         run: |
           npm ci
           npx playwright install --with-deps
