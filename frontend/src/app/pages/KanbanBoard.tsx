@@ -22,6 +22,7 @@ export function KanbanBoard() {
   const project = useProjectStore((s) => 
     s.projects.find((p) => p.boardId === projectId || p.id === projectId)
   );
+  const { user } = useProjectStore();
   const {
     updateProject,
     moveTask: moveTaskInStore,
@@ -32,6 +33,16 @@ export function KanbanBoard() {
     renameColumn,
     deleteColumn,
   } = useProjectStore();
+
+  // Get current user's role in the project
+  const getCurrentUserRole = () => {
+    if (!project || !user?.email) return 'viewer';
+    const currentMember = project.members.find((m) => m.email === user.email);
+    return currentMember?.role || 'viewer';
+  };
+
+  const currentUserRole = getCurrentUserRole();
+  const canEdit = currentUserRole !== 'viewer';
 
   const [selectedTask, setSelectedTask] = useState<BoardTask | null>(null);
   const [createTaskColumnId, setCreateTaskColumnId] = useState<string | null>(null);
@@ -87,6 +98,11 @@ export function KanbanBoard() {
   };
 
   const handleCreateTask = async (taskData: { title: string; description: string; priority: BoardTask['priority']; columnId: string; assigneeId?: string }) => {
+    if (!canEdit) {
+      toast.error('Only editors and owners can create tasks');
+      return;
+    }
+
     try {
       const createdCard = await apiService.createCard(taskData.columnId, {
         title: taskData.title,
@@ -97,12 +113,18 @@ export function KanbanBoard() {
       const mappedTask = mapCardResponseToTask(createdCard);
       addTaskInStore(project.id, mappedTask);
       setCreateTaskColumnId(null);
+      toast.success('Task created successfully');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to create task');
     }
   };
 
   const handleAddColumn = async () => {
+    if (!canEdit) {
+      toast.error('Only editors and owners can create columns');
+      return;
+    }
+
     if (!newColumnTitle.trim()) {
       toast.error('Column name is required');
       return;
@@ -156,11 +178,22 @@ export function KanbanBoard() {
   };
 
   const handleStartEditColumn = (columnId: string, currentTitle: string) => {
+    if (!canEdit) {
+      toast.error('Only editors and owners can edit columns');
+      return;
+    }
     setEditingColumnId(columnId);
     setEditingColumnTitle(currentTitle);
   };
 
   const handleSaveColumnName = async () => {
+    if (!canEdit) {
+      toast.error('Only editors and owners can edit columns');
+      setEditingColumnId(null);
+      setEditingColumnTitle('');
+      return;
+    }
+
     if (editingColumnId && editingColumnTitle.trim()) {
       try {
         await apiService.renameStage(editingColumnId, { title: editingColumnTitle.trim() });
@@ -181,6 +214,11 @@ export function KanbanBoard() {
   };
 
   const handleDeleteColumn = async (columnId: string) => {
+    if (!canEdit) {
+      toast.error('Only editors and owners can delete columns');
+      return;
+    }
+
     const tasksInColumn = project.tasks.filter((t) => t.columnId === columnId).length;
     const msg = tasksInColumn > 0
       ? `Delete this column and its ${tasksInColumn} task${tasksInColumn > 1 ? 's' : ''}?`
@@ -223,7 +261,13 @@ export function KanbanBoard() {
                 tasks={getTasksByColumn(column.id)}
                 onTaskClick={setSelectedTask}
                 onMoveTask={handleMoveTask}
-                onAddTask={() => setCreateTaskColumnId(column.id)}
+                onAddTask={() => {
+                  if (!canEdit) {
+                    toast.error('Only editors and owners can create tasks');
+                    return;
+                  }
+                  setCreateTaskColumnId(column.id);
+                }}
                 editingColumnId={editingColumnId}
                 editingColumnTitle={editingColumnTitle}
                 onStartEditColumn={handleStartEditColumn}
@@ -265,7 +309,13 @@ export function KanbanBoard() {
                 </div>
               ) : (
                 <button
-                  onClick={() => setAddingColumn(true)}
+                  onClick={() => {
+                    if (!canEdit) {
+                      toast.error('Only editors and owners can create columns');
+                      return;
+                    }
+                    setAddingColumn(true);
+                  }}
                   className="w-full h-12 bg-gray-100 hover:bg-gray-200 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center gap-2 text-gray-500 hover:text-gray-700 transition-colors"
                 >
                   <Plus className="w-4 h-4" />

@@ -129,17 +129,28 @@ export function Meetings() {
         }, {})
       );
 
-      const meetingResults = await Promise.all(
-        projects.map((project) => apiService.getMeetingsByProject(project.id))
-      );
+      // Fetch meetings and changes in parallel
+      const [meetingResults, changeResults] = await Promise.all([
+        Promise.allSettled(
+          projects.map((project) => apiService.getMeetingsByProject(project.id))
+        ),
+        Promise.allSettled(
+          projects.map((project) => apiService.listChanges({ projectId: project.id }))
+        ),
+      ]);
 
-      const changeResults = await Promise.all(
-        projects.map((project) => apiService.listChanges({ projectId: project.id }))
-      );
+      // Extract values from successful promises, skip failures
+      const mergedMeetings = meetingResults
+        .filter((result) => result.status === 'fulfilled')
+        .map((result) => (result as PromiseFulfilledResult<MeetingResponse[]>).value)
+        .flat();
 
-      const mergedMeetings = meetingResults.flat();
+      const mergedChanges = changeResults
+        .filter((result) => result.status === 'fulfilled')
+        .map((result) => (result as PromiseFulfilledResult<ChangeResponse[]>).value)
+        .flat();
+
       const uniqueMeetings = Array.from(new Map(mergedMeetings.map((m) => [m.id, m])).values());
-      const mergedChanges = changeResults.flat();
       const uniqueChanges = Array.from(new Map(mergedChanges.map((c) => [c.id, c])).values());
 
       setMeetings(uniqueMeetings);

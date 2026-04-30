@@ -15,7 +15,8 @@ const parseTimeout = (value: string | undefined, fallbackMs: number): number => 
 };
 
 const env = process.env;
-const REQUEST_TIMEOUT_MS = parseTimeout(env.VITE_REQUEST_TIMEOUT_MS, 15000);
+const REQUEST_TIMEOUT_MS = parseTimeout(env.VITE_REQUEST_TIMEOUT_MS, 30000);
+const DATA_FETCH_TIMEOUT_MS = parseTimeout(env.VITE_DATA_FETCH_TIMEOUT_MS, 60000);
 const LLM_REQUEST_TIMEOUT_MS = parseTimeout(env.VITE_LLM_REQUEST_TIMEOUT_MS, 60000);
 
 interface LoginRequest {
@@ -403,7 +404,7 @@ export const apiService = {
     const response = await requestWithTimeout(`${API_BASE_URL}/projects`, {
       method: 'GET',
       headers: getAuthHeaders(),
-    });
+    }, DATA_FETCH_TIMEOUT_MS);
 
     if (!response.ok) {
       throw new Error(await parseApiErrorMessage(response, 'Failed to fetch projects'));
@@ -630,7 +631,7 @@ export const apiService = {
     const response = await requestWithTimeout(`${API_BASE_URL}/meetings/project/${projectId}`, {
       method: 'GET',
       headers: getAuthHeaders(),
-    });
+    }, DATA_FETCH_TIMEOUT_MS);
 
     if (!response.ok) {
       throw new Error(await parseApiErrorMessage(response, 'Failed to fetch meetings'));
@@ -872,7 +873,7 @@ export const apiService = {
     const response = await requestWithTimeout(`${API_BASE_URL}/changes${query ? `?${query}` : ''}`, {
       method: 'GET',
       headers: getAuthHeaders(),
-    });
+    }, DATA_FETCH_TIMEOUT_MS);
 
     if (!response.ok) {
       throw new Error(await parseApiErrorMessage(response, 'Failed to fetch changes'));

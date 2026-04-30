@@ -139,10 +139,11 @@ const mockProjectStoreActions = {
 };
 
 // Helper function to create a proper store mock that handles both selector and non-selector calls
-function setupProjectStoreMock(projects = [mockProject], actions = mockProjectStoreActions) {
+function setupProjectStoreMock(projects = [mockProject], actions = mockProjectStoreActions, user = { name: 'Alice', email: 'alice@test.com', role: 'owner' }) {
   (projectStore as any).useProjectStore = jest.fn((selector?: any) => {
     const mockStore = {
       projects,
+      user,
       ...actions,
     };
     // Handle both selector and non-selector calls correctly

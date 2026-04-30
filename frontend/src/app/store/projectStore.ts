@@ -266,6 +266,10 @@ export const useProjectStore = create<ProjectStore>((set) => ({
       const column = project.columns.find((col) => col.id === card.stageId);
       if (!column) return project;
       
+      // Check if this task is already in this project
+      const taskExists = project.tasks.some((t) => t.id === card.id);
+      if (taskExists) return project;
+      
       const newTask: BoardTask = {
         id: card.id,
         title: card.title,
@@ -330,6 +334,10 @@ updateCardFromRealTime: (card) => set((state) => {
   
   addStageToBoard: (stage) => set((state) => {
     const updatedProjects = state.projects.map((project) => {
+      // Check if this stage already exists in this project
+      const stageExists = project.columns.some((col) => col.id === stage.id);
+      if (stageExists) return project;
+      
       const newColumn: BoardColumn = {
         id: stage.id,
         title: stage.title,
