@@ -10,6 +10,9 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  AWS_REGION: us-east-2
+
 jobs:
   frontend-tests:
     name: Frontend Tests
