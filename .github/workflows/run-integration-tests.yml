@@ -14,7 +14,7 @@ jobs:
         image: postgres:16-alpine
         env:
           POSTGRES_DB: flowboard
-           POSTGRES_USER: flowboard
+          POSTGRES_USER: flowboard
           POSTGRES_PASSWORD: flowboard_password
         options: >-
           --health-cmd pg_isready
@@ -46,7 +46,7 @@ jobs:
           DB_HOST: localhost
           DB_PORT: 5432
           DB_NAME: flowboard
-           DB_USERNAME: flowboard
+          DB_USERNAME: flowboard
           DB_PASSWORD: flowboard_password
           AWS_REGION: us-east-2
         run: mvn -B -ntp clean package -DskipTests
@@ -65,7 +65,7 @@ jobs:
           DB_HOST: localhost
           DB_PORT: 5432
           DB_NAME: flowboard
-           DB_USERNAME: flowboard
+          DB_USERNAME: flowboard
           DB_PASSWORD: flowboard_password
           AWS_REGION: us-east-2
           SERVER_PORT: 8080
