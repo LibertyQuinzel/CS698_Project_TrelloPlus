@@ -301,7 +301,8 @@ export function MeetingChanges() {
                 label: change.type, 
                 color: 'bg-gray-50 text-gray-700 border-gray-200' 
               };
-              const staleTarget = hasMissingTargetCard(change);
+              // For DELETE operations that are already APPLIED, don't show "target missing" - the deletion was successful
+              const staleTarget = change.status !== 'APPLIED' && hasMissingTargetCard(change);
               
               return (
                 <div
