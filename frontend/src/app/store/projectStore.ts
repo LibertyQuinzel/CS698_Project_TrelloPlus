@@ -181,9 +181,12 @@ export const useProjectStore = create<ProjectStore>((set) => ({
   })),
   
   addColumnToProject: (projectId, column) => set((state) => ({
-    projects: state.projects.map((p) =>
-      p.id === projectId ? { ...p, columns: [...p.columns, column] } : p
-    ),
+    projects: state.projects.map((p) => {
+      if (p.id !== projectId) return p;
+      // Check if column already exists to prevent duplicates
+      if (p.columns.some((c) => c.id === column.id)) return p;
+      return { ...p, columns: [...p.columns, column] };
+    }),
   })),
   
   renameColumn: (projectId, columnId, newTitle) => set((state) => ({
@@ -207,9 +210,12 @@ export const useProjectStore = create<ProjectStore>((set) => ({
   })),
   
   addTask: (projectId, task) => set((state) => ({
-    projects: state.projects.map((p) =>
-      p.id === projectId ? { ...p, tasks: [...p.tasks, task] } : p
-    ),
+    projects: state.projects.map((p) => {
+      if (p.id !== projectId) return p;
+      // Check if task already exists to prevent duplicates
+      if (p.tasks.some((t) => t.id === task.id)) return p;
+      return { ...p, tasks: [...p.tasks, task] };
+    }),
   })),
   
   updateTask: (projectId, task) => set((state) => ({
