@@ -57,6 +57,7 @@ export function MeetingSummary() {
   const [isSavingItem, setIsSavingItem] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isProjectOwner, setIsProjectOwner] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const reloadSummaryAndApproval = async (id: string) => {
     const [summaryData, approvalData] = await Promise.all([
@@ -86,6 +87,7 @@ export function MeetingSummary() {
 
     const loadData = async () => {
       try {
+        setIsLoading(true);
         const [meetingData, summaryData, approvalData] = await Promise.all([
           apiService.getMeeting(meetingId),
           apiService.getSummaryByMeeting(meetingId),
@@ -114,6 +116,10 @@ export function MeetingSummary() {
       } catch (error) {
         if (isMounted) {
           toast.error(error instanceof Error ? error.message : 'Failed to load meeting summary');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
         }
       }
     };
@@ -165,6 +171,15 @@ export function MeetingSummary() {
       };
     });
   }, [summary, meeting]);
+
+  if (isLoading) {
+    return (
+      <div className="p-8 pt-24 text-center">
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading meeting...</h2>
+        <div className="w-6 h-6 border-3 border-gray-300 border-t-blue-600 rounded-full animate-spin mx-auto mt-4"></div>
+      </div>
+    );
+  }
 
   if (!meeting) {
     return (

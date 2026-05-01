@@ -27,6 +27,7 @@ export function MeetingChanges() {
   const [appliedSuccessChangeId, setAppliedSuccessChangeId] = useState<string | null>(null);
   const [canApplyChanges, setCanApplyChanges] = useState(false);
   const [currentProject, setCurrentProject] = useState<ProjectResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const setProjects = useProjectStore((s) => s.setProjects);
 
   const getApplyErrorMessage = (error: unknown) => {
@@ -132,6 +133,7 @@ export function MeetingChanges() {
 
     const loadData = async () => {
       try {
+        setIsLoading(true);
         const [meetingData, changeData] = await Promise.all([
           apiService.getMeeting(meetingId),
           apiService.listChanges({ meetingId }),
@@ -188,6 +190,10 @@ export function MeetingChanges() {
         if (isMounted) {
           toast.error(error instanceof Error ? error.message : 'Failed to load meeting changes');
         }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
@@ -243,6 +249,15 @@ export function MeetingChanges() {
         return title;
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="p-8 pt-24 text-center">
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading meeting changes...</h2>
+        <div className="w-6 h-6 border-3 border-gray-300 border-t-blue-600 rounded-full animate-spin mx-auto mt-4"></div>
+      </div>
+    );
+  }
 
   if (!meeting) {
     return (
