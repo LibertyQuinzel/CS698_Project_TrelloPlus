@@ -84,8 +84,18 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cors = new CorsConfiguration();
-        cors.setAllowedOriginPatterns(Arrays.asList(allowedOrigins.split(",")));
-        cors.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        
+        // Convert shell-style wildcards to regex patterns
+        java.util.List<String> patterns = new java.util.ArrayList<>();
+        for (String origin : allowedOrigins.split(",")) {
+            String pattern = origin.trim()
+                .replace(".", "\\.")  // Escape dots for regex
+                .replace("*", ".*");   // Convert wildcard to regex
+            patterns.add(pattern);
+        }
+        cors.setAllowedOriginPatterns(patterns);
+        
+        cors.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         cors.setAllowedHeaders(Arrays.asList(
             HttpHeaders.AUTHORIZATION,
             HttpHeaders.CONTENT_TYPE,
