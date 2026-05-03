@@ -85,16 +85,22 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cors = new CorsConfiguration();
         
-        // Convert shell-style wildcards to regex patterns
-        java.util.List<String> patterns = new java.util.ArrayList<>();
-        for (String origin : allowedOrigins.split(",")) {
-            String pattern = origin.trim()
-                .replace(".", "\\.")  // Escape dots for regex
-                .replace("*", ".*");   // Convert wildcard to regex
-            patterns.add(pattern);
-        }
-        cors.setAllowedOriginPatterns(patterns);
+        // Parse allowed origins and convert wildcards to regex patterns
+        String[] originPatterns = allowedOrigins.split(",");
+        java.util.List<String> regexPatterns = new java.util.ArrayList<>();
         
+        for (String origin : originPatterns) {
+            String pattern = origin.trim();
+            // First replace wildcards with placeholder
+            pattern = pattern.replace("*", "\u0001");  // Use placeholder for *
+            // Then escape all regex special characters
+            pattern = pattern.replaceAll("[.+^${}|()\\[\\]\\\\]", "\\\\$0");
+            // Finally replace placeholder with regex wildcard
+            pattern = pattern.replace("\u0001", ".*");
+            regexPatterns.add(pattern);
+        }
+        
+        cors.setAllowedOriginPatterns(regexPatterns);
         cors.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         cors.setAllowedHeaders(Arrays.asList(
             HttpHeaders.AUTHORIZATION,
