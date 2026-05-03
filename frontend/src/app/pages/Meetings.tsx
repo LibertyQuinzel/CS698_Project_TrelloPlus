@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useChangeStore, type ChangeRequest } from '../store/changeStore';
 import { useMeetingStore, type Meeting } from '../store/meetingStore';
 import { useNavigate } from 'react-router';
 import { Badge } from '../components/ui/badge';
@@ -23,8 +22,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
-import { Calendar, Clock, Plus, FileText, ListChecks, Video, ExternalLink } from 'lucide-react';
-import { apiService, type MeetingResponse, type ChangeResponse } from '../services/api';
+import { Calendar, Clock, Plus, FileText, Video, ExternalLink } from 'lucide-react';
+import { apiService, type MeetingResponse } from '../services/api';
 import { toast } from 'sonner';
 import { formatMeetingDateLocal, formatMeetingTimeLocal, convertLocalToUTC, convertBackendDateTimeToLocal } from '../utils/timezoneUtils';
 import { getMeetingSortValue } from '../utils/meetingDateTime';
@@ -42,8 +41,6 @@ export function Meetings() {
   const [projectNameById, setProjectNameById] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const setMeetingsStore = useMeetingStore((s) => s.setMeetings);
-  const setChangesStore = useChangeStore((s) => s.setChanges);
-  const allChanges = useChangeStore((s) => s.changes);
   const navigate = useNavigate();
   const [rescheduleMeeting, setRescheduleMeeting] = useState<MeetingResponse | null>(null);
   const [removeMeeting, setRemoveMeeting] = useState<MeetingResponse | null>(null);
@@ -97,26 +94,6 @@ export function Meetings() {
     userHasApproved: false,
   });
 
-  const mapChangeToStore = (change: ChangeResponse): ChangeRequest => ({
-    id: change.id,
-    meetingId: change.meetingId,
-    meetingTitle: '',
-    type: change.changeType as ChangeRequest['type'],
-    status: change.status as ChangeRequest['status'],
-    requestedBy: 'system',
-    requestedAt: change.createdAt,
-    projectId: '',
-    before: undefined,
-    after: undefined,
-    affectedCards: [],
-    affectedStages: [],
-    affectedMembers: [],
-    riskLevel: 'LOW',
-    approvals: [],
-    requiredApprovals: 0,
-    rollbackAvailable: false,
-  });
-
   const loadMeetings = async () => {
     setIsLoading(true);
 
@@ -129,15 +106,9 @@ export function Meetings() {
         }, {})
       );
 
-      // Fetch meetings and changes in parallel
-      const [meetingResults, changeResults] = await Promise.all([
-        Promise.allSettled(
-          projects.map((project) => apiService.getMeetingsByProject(project.id))
-        ),
-        Promise.allSettled(
-          projects.map((project) => apiService.listChanges({ projectId: project.id }))
-        ),
-      ]);
+      const meetingResults = await Promise.allSettled(
+        projects.map((project) => apiService.getMeetingsByProject(project.id))
+      );
 
       // Extract values from successful promises, skip failures
       const mergedMeetings = meetingResults
@@ -145,17 +116,10 @@ export function Meetings() {
         .map((result) => (result as PromiseFulfilledResult<MeetingResponse[]>).value)
         .flat();
 
-      const mergedChanges = changeResults
-        .filter((result) => result.status === 'fulfilled')
-        .map((result) => (result as PromiseFulfilledResult<ChangeResponse[]>).value)
-        .flat();
-
       const uniqueMeetings = Array.from(new Map(mergedMeetings.map((m) => [m.id, m])).values());
-      const uniqueChanges = Array.from(new Map(mergedChanges.map((c) => [c.id, c])).values());
 
       setMeetings(uniqueMeetings);
       setMeetingsStore(uniqueMeetings.map(mapMeetingToStore));
-      setChangesStore(uniqueChanges.map(mapChangeToStore));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to load meetings');
     } finally {
@@ -300,8 +264,6 @@ export function Meetings() {
             {sortedMeetings.map((meeting) => {
               const normalizedStatus = normalizeMeetingStatusLabel(meeting.status);
               const statusInfo = statusConfig[normalizedStatus];
-              const pendingChanges = allChanges.filter(change => change.meetingId === meeting.id);
-              const changeCount = pendingChanges.length;
 
               return (
                 <div
@@ -326,11 +288,6 @@ export function Meetings() {
                       <Badge variant="outline" className={statusInfo.color}>
                         {statusInfo.label}
                       </Badge>
-                      {changeCount > 0 && (
-                        <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                          {changeCount} changes
-                        </Badge>
-                      )}
                     </div>
                   </div>
 
@@ -408,20 +365,6 @@ export function Meetings() {
                           Remove
                         </Button>
                       </>
-                    )}
-                    {changeCount > 0 && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/meetings/${meeting.id}/changes`);
-                        }}
-                        className="flex-1 min-w-[120px]"
-                      >
-                        <ListChecks className="w-4 h-4 mr-2" />
-                        Changes ({changeCount})
-                      </Button>
                     )}
                   </div>
                 </div>
