@@ -70,7 +70,7 @@ export function Register() {
       });
 
       toast.success('Account created successfully!');
-      navigate('/');
+      navigate('/security-questions-setup');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Registration failed');
     } finally {

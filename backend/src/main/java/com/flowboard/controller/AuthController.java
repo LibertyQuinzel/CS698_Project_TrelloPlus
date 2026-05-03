@@ -2,9 +2,14 @@ package com.flowboard.controller;
 
 import com.flowboard.dto.AuthResponse;
 import com.flowboard.dto.LoginRequest;
+import com.flowboard.dto.PasswordResetTokenResponse;
 import com.flowboard.dto.RegisterRequest;
+import com.flowboard.dto.ResetPasswordRequest;
+import com.flowboard.dto.SecurityQuestionsResponse;
+import com.flowboard.dto.SetSecurityQuestionsRequest;
 import com.flowboard.dto.UpdateUserProfileRequest;
 import com.flowboard.dto.UserDTO;
+import com.flowboard.dto.ValidateSecurityAnswersRequest;
 import com.flowboard.service.AuthService;
 import com.flowboard.service.JWTService;
 import com.flowboard.service.RateLimitService;
@@ -40,6 +45,30 @@ public class AuthController {
 
     @Value("${app.rate-limit.auth.login.window-minutes:15}")
     private int loginWindowMinutes;
+
+    @Value("${app.rate-limit.auth.security-questions.setup.max-attempts:10}")
+    private int securityQuestionsSetupMaxAttempts;
+
+    @Value("${app.rate-limit.auth.security-questions.setup.window-minutes:15}")
+    private int securityQuestionsSetupWindowMinutes;
+
+    @Value("${app.rate-limit.auth.security-questions.lookup.max-attempts:10}")
+    private int securityQuestionsLookupMaxAttempts;
+
+    @Value("${app.rate-limit.auth.security-questions.lookup.window-minutes:15}")
+    private int securityQuestionsLookupWindowMinutes;
+
+    @Value("${app.rate-limit.auth.forgot-password.validate.max-attempts:5}")
+    private int forgotPasswordValidateMaxAttempts;
+
+    @Value("${app.rate-limit.auth.forgot-password.validate.window-minutes:15}")
+    private int forgotPasswordValidateWindowMinutes;
+
+    @Value("${app.rate-limit.auth.reset-password.max-attempts:5}")
+    private int resetPasswordMaxAttempts;
+
+    @Value("${app.rate-limit.auth.reset-password.window-minutes:15}")
+    private int resetPasswordWindowMinutes;
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(
@@ -107,5 +136,74 @@ public class AuthController {
         @Valid @RequestBody UpdateUserProfileRequest request) {
         UUID userId = jwtService.extractUserIdFromAuthHeader(authHeader);
         return ResponseEntity.ok(authService.updateUserProfile(userId.toString(), request));
+    }
+
+    @PostMapping("/security-questions")
+    public ResponseEntity<Void> setSecurityQuestions(
+        @RequestHeader("Authorization") String authHeader,
+        @Valid @RequestBody SetSecurityQuestionsRequest request
+    ) {
+        UUID userId = jwtService.extractUserIdFromAuthHeader(authHeader);
+        rateLimitService.check(
+            "security-questions:setup:user:" + userId,
+            securityQuestionsSetupMaxAttempts,
+            Duration.ofMinutes(securityQuestionsSetupWindowMinutes),
+            "Too many security question updates. Please try again later."
+        );
+        authService.setSecurityQuestions(userId.toString(), request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/security-questions/me")
+    public ResponseEntity<SecurityQuestionsResponse> getMySecurityQuestions(
+        @RequestHeader("Authorization") String authHeader
+    ) {
+        UUID userId = jwtService.extractUserIdFromAuthHeader(authHeader);
+        return ResponseEntity.ok(authService.getMySecurityQuestions(userId.toString()));
+    }
+
+    @GetMapping("/security-questions/{email}")
+    public ResponseEntity<SecurityQuestionsResponse> getSecurityQuestions(
+        @PathVariable String email,
+        HttpServletRequest httpRequest
+    ) {
+        String normalizedEmail = email.trim().toLowerCase();
+        rateLimitService.check(
+            "security-questions:lookup:ip:" + httpRequest.getRemoteAddr() + ":email:" + normalizedEmail,
+            securityQuestionsLookupMaxAttempts,
+            Duration.ofMinutes(securityQuestionsLookupWindowMinutes),
+            "Too many recovery lookups. Please try again later."
+        );
+        return ResponseEntity.ok(authService.getSecurityQuestions(normalizedEmail));
+    }
+
+    @PostMapping("/forgot-password/validate")
+    public ResponseEntity<PasswordResetTokenResponse> validateSecurityAnswers(
+        @Valid @RequestBody ValidateSecurityAnswersRequest request,
+        HttpServletRequest httpRequest
+    ) {
+        String normalizedEmail = request.getEmail().trim().toLowerCase();
+        rateLimitService.check(
+            "forgot-password:validate:ip:" + httpRequest.getRemoteAddr() + ":email:" + normalizedEmail,
+            forgotPasswordValidateMaxAttempts,
+            Duration.ofMinutes(forgotPasswordValidateWindowMinutes),
+            "Too many answer validation attempts. Please try again later."
+        );
+        return ResponseEntity.ok(authService.validateSecurityAnswers(request));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(
+        @Valid @RequestBody ResetPasswordRequest request,
+        HttpServletRequest httpRequest
+    ) {
+        rateLimitService.check(
+            "reset-password:ip:" + httpRequest.getRemoteAddr() + ":token:" + request.getResetToken(),
+            resetPasswordMaxAttempts,
+            Duration.ofMinutes(resetPasswordWindowMinutes),
+            "Too many password reset attempts. Please try again later."
+        );
+        authService.resetPassword(request);
+        return ResponseEntity.noContent().build();
     }
 }

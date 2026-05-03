@@ -9,6 +9,8 @@ import { Profile } from "./pages/Profile";
 import { Settings } from "./pages/Settings";
 import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
+import { ForgotPassword } from "./pages/ForgotPassword";
+import { SecurityQuestionsSetup } from "./pages/SecurityQuestionsSetup";
 import { Logout } from "./pages/Logout";
 import { Meetings } from "./pages/Meetings";
 import { MeetingSummary } from "./pages/MeetingSummary";
@@ -26,6 +28,14 @@ export const router = createBrowserRouter([
   {
     path: "/register",
     Component: Register,
+  },
+  {
+    path: "/forgot-password",
+    Component: ForgotPassword,
+  },
+  {
+    path: "/security-questions-setup",
+    element: <ProtectedRoute><SecurityQuestionsSetup /></ProtectedRoute>,
   },
   {
     path: "/logout",

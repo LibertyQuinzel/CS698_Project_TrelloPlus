@@ -86,7 +86,12 @@ export function Login() {
             </div>
             
             <div>
-              <Label htmlFor="login-password" className="mb-2 block">Password</Label>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <Label htmlFor="login-password" className="block">Password</Label>
+                <Link to="/forgot-password" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                  Forgot?
+                </Link>
+              </div>
               <Input
                 id="login-password"
                 type="password"
