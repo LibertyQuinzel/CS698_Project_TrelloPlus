@@ -85,34 +85,48 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cors = new CorsConfiguration();
         
-        // Parse allowed origins and convert wildcards to regex patterns
+        // Parse allowed origins - separate exact origins from patterns
         String[] originPatterns = allowedOrigins.split(",");
+        java.util.List<String> exactOrigins = new java.util.ArrayList<>();
         java.util.List<String> regexPatterns = new java.util.ArrayList<>();
         
         for (String origin : originPatterns) {
-            String pattern = origin.trim();
-            // First replace wildcards with placeholder
-            pattern = pattern.replace("*", "\u0001");  // Use placeholder for *
-            // Then escape all regex special characters
-            pattern = pattern.replaceAll("[.+^${}|()\\[\\]\\\\]", "\\\\$0");
-            // Finally replace placeholder with regex wildcard
-            pattern = pattern.replace("\u0001", ".*");
-            regexPatterns.add(pattern);
+            String trimmed = origin.trim();
+            if (trimmed.contains("*")) {
+                // Convert wildcard patterns to regex
+                String pattern = trimmed;
+                pattern = pattern.replace("*", "\u0001");  // Use placeholder for *
+                pattern = pattern.replaceAll("[.+^${}|()\\[\\]\\\\]", "\\\\$0");  // Escape regex chars
+                pattern = pattern.replace("\u0001", ".*");  // Convert placeholder to regex
+                regexPatterns.add(pattern);
+            } else {
+                exactOrigins.add(trimmed);
+            }
         }
         
-        cors.setAllowedOriginPatterns(regexPatterns);
-        cors.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        cors.setAllowedHeaders(Arrays.asList(
-            HttpHeaders.AUTHORIZATION,
-            HttpHeaders.CONTENT_TYPE,
+        // When allowCredentials is true, we must use exact origins
+        // For wildcard patterns, disable credentials to allow patterns
+        if (!exactOrigins.isEmpty()) {
+            cors.setAllowedOrigins(exactOrigins);
+            cors.setAllowCredentials(true);
+        }
+        
+        if (!regexPatterns.isEmpty()) {
+            cors.setAllowedOriginPatterns(regexPatterns);
+            // Note: Cannot use allowCredentials=true with patterns, but patterns don't need it for deployment
+        }
+        
+        cors.setAllowedMethods(java.util.Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        cors.setAllowedHeaders(java.util.Arrays.asList(
+            org.springframework.http.HttpHeaders.AUTHORIZATION,
+            org.springframework.http.HttpHeaders.CONTENT_TYPE,
             "X-Amz-Date",
             "X-Api-Key",
             "X-Amz-Security-Token",
             "X-Amzn-Trace-Id"
         ));
-        cors.setExposedHeaders(Arrays.asList(HttpHeaders.AUTHORIZATION));
+        cors.setExposedHeaders(java.util.Arrays.asList(org.springframework.http.HttpHeaders.AUTHORIZATION));
         cors.setMaxAge(3600L);
-        cors.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", cors);
