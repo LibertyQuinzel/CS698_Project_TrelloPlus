@@ -25,11 +25,14 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import jakarta.servlet.DispatcherType;
 import java.util.Arrays;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
+    private static final Logger logger = LoggerFactory.getLogger(SecurityConfig.class);
     private final CustomUserDetailsService userDetailsService;
     private final PasswordEncoder passwordEncoder;
     private final JWTService jwtService;
@@ -90,6 +93,8 @@ public class SecurityConfig {
         java.util.List<String> exactOrigins = new java.util.ArrayList<>();
         java.util.List<String> regexPatterns = new java.util.ArrayList<>();
         
+        logger.info("CORS Configuration: Processing {} origin patterns from: {}", originPatterns.length, allowedOrigins);
+        
         for (String origin : originPatterns) {
             String trimmed = origin.trim();
             if (trimmed.contains("*")) {
@@ -99,8 +104,10 @@ public class SecurityConfig {
                 pattern = pattern.replaceAll("[.+^${}|()\\[\\]\\\\]", "\\\\$0");  // Escape regex chars
                 pattern = pattern.replace("\u0001", ".*");  // Convert placeholder to regex
                 regexPatterns.add(pattern);
+                logger.debug("CORS: Converted wildcard '{}' to regex pattern '{}'", trimmed, pattern);
             } else {
                 exactOrigins.add(trimmed);
+                logger.debug("CORS: Added exact origin '{}'", trimmed);
             }
         }
         
@@ -109,10 +116,12 @@ public class SecurityConfig {
         if (!exactOrigins.isEmpty()) {
             cors.setAllowedOrigins(exactOrigins);
             cors.setAllowCredentials(true);
+            logger.info("CORS: Configured {} exact origins with credentials: {}", exactOrigins.size(), exactOrigins);
         }
         
         if (!regexPatterns.isEmpty()) {
             cors.setAllowedOriginPatterns(regexPatterns);
+            logger.info("CORS: Configured {} regex patterns without credentials: {}", regexPatterns.size(), regexPatterns);
             // Note: Cannot use allowCredentials=true with patterns, but patterns don't need it for deployment
         }
         
