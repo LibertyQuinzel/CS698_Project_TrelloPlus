@@ -88,35 +88,42 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cors = new CorsConfiguration();
         
-        // Parse and convert all origins to regex patterns
+        // Parse allowed origins - separate exact origins from patterns
         String[] originPatterns = allowedOrigins.split(",");
+        java.util.List<String> exactOrigins = new java.util.ArrayList<>();
         java.util.List<String> regexPatterns = new java.util.ArrayList<>();
         
         logger.info("CORS Configuration: Processing {} origin patterns from: {}", originPatterns.length, allowedOrigins);
         
         for (String origin : originPatterns) {
             String trimmed = origin.trim();
-            String pattern;
-            
             if (trimmed.contains("*")) {
-                // Convert wildcard pattern to regex
-                pattern = trimmed;
+                // Convert wildcard patterns to regex
+                String pattern = trimmed;
                 pattern = pattern.replace("*", "\u0001");  // Use placeholder for *
                 pattern = pattern.replaceAll("[.+^${}|()\\[\\]\\\\]", "\\\\$0");  // Escape regex chars
                 pattern = pattern.replace("\u0001", ".*");  // Convert placeholder to regex
+                regexPatterns.add(pattern);
                 logger.debug("CORS: Converted wildcard '{}' to regex pattern '{}'", trimmed, pattern);
             } else {
-                // Exact origin - escape as literal regex
-                pattern = "^" + trimmed.replaceAll("[.+^${}|()\\[\\]\\\\]", "\\\\$0") + "$";
-                logger.debug("CORS: Converted exact origin '{}' to regex pattern '{}'", trimmed, pattern);
+                exactOrigins.add(trimmed);
+                logger.debug("CORS: Added exact origin '{}'", trimmed);
             }
-            regexPatterns.add(pattern);
         }
         
-        // Use setAllowedOriginPatterns for all origins (works with or without credentials)
-        cors.setAllowedOriginPatterns(regexPatterns);
-        cors.setAllowCredentials(true);
-        logger.info("CORS: Configured {} origin patterns with credentials", regexPatterns.size());
+        // When allowCredentials is true, we must use exact origins
+        // For wildcard patterns, disable credentials to allow patterns
+        if (!exactOrigins.isEmpty()) {
+            cors.setAllowedOrigins(exactOrigins);
+            cors.setAllowCredentials(true);
+            logger.info("CORS: Configured {} exact origins with credentials: {}", exactOrigins.size(), exactOrigins);
+        }
+        
+        if (!regexPatterns.isEmpty()) {
+            cors.setAllowedOriginPatterns(regexPatterns);
+            logger.info("CORS: Configured {} regex patterns without credentials: {}", regexPatterns.size(), regexPatterns);
+            // Note: Cannot use allowCredentials=true with patterns, but patterns don't need it for deployment
+        }
         
         cors.setAllowedMethods(java.util.Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         cors.setAllowedHeaders(java.util.Arrays.asList(
